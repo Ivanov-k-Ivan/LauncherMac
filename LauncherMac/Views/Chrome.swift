@@ -2,27 +2,15 @@ import AppKit
 import SwiftUI
 
 struct LauncherBackground: View {
+    let shape: RoundedRectangle
+
     var body: some View {
         ZStack {
-            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+            VisualEffectView(material: .fullScreenUI, blendingMode: .behindWindow)
 
-            LinearGradient(
-                stops: [
-                    .init(color: Color(white: 0.16).opacity(0.78), location: 0),
-                    .init(color: Color(white: 0.10).opacity(0.88), location: 0.5),
-                    .init(color: Color(white: 0.07).opacity(0.92), location: 1)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            RadialGradient(
-                colors: [Color.white.opacity(0.07), .clear],
-                center: .top,
-                startRadius: 10,
-                endRadius: 820
-            )
+            Color.black.opacity(0.0)
         }
+        .clipShape(shape)
         .ignoresSafeArea()
     }
 }

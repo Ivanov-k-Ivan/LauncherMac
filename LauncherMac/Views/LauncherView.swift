@@ -17,7 +17,9 @@ struct LauncherView: View {
         presentationMode != LauncherController.Presentation.window.rawValue
     }
 
-    private var panelShape: Rectangle { Rectangle() }
+    private var panelShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
+    }
 
     private var hasContent: Bool {
         if store.isSearching { return !store.pageItems.isEmpty }
@@ -80,26 +82,13 @@ struct LauncherView: View {
 
     @ViewBuilder
     private var spotlightWindow: some View {
-        if #available(macOS 26.0, *) {
-            launcherContent
-                .glassEffect(
-                    .regular.tint(Color(red: 0.06, green: 0.07, blue: 0.09).opacity(0.58)),
-                    in: panelShape
-                )
-                .overlay {
-                    panelShape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                }
-                .contentShape(panelShape)
-                .onTapGesture {}
-        } else {
-            launcherContent
-                .background(LauncherBackground())
-                .overlay {
-                    panelShape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                }
-                .contentShape(panelShape)
-                .onTapGesture {}
-        }
+        launcherContent
+            .background(LauncherBackground(shape: panelShape))
+            .overlay {
+                panelShape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+            }
+            .contentShape(panelShape)
+            .onTapGesture {}
     }
 
     private var launcherContent: some View {
