@@ -5,8 +5,8 @@ struct LauncherView: View {
     @ObservedObject var store: LauncherStore
     let controller: LauncherController
 
-    @AppStorage("gridColumns") private var columns = 8
-    @AppStorage("gridRows") private var rows = 5
+    @AppStorage("gridColumns") private var columns = 7
+    @AppStorage("gridRows") private var rows = 4
     @AppStorage("presentationMode") private var presentationMode = LauncherController.Presentation.window.rawValue
     @AppStorage("scrollMode") private var scrollMode = ScrollMode.vertical.rawValue
 
@@ -17,17 +17,7 @@ struct LauncherView: View {
         presentationMode != LauncherController.Presentation.window.rawValue
     }
 
-    private var gridHorizontalPadding: CGFloat {
-        isOverlay ? 80 : 24
-    }
-
-    private var panelInset: CGFloat {
-        isOverlay ? 14 : 0
-    }
-
-    private var panelCornerRadius: CGFloat {
-        isOverlay ? 30 : 0
-    }
+    private var panelShape: Rectangle { Rectangle() }
 
     private var hasContent: Bool {
         if store.isSearching { return !store.pageItems.isEmpty }
@@ -53,17 +43,12 @@ struct LauncherView: View {
     }
 
     var body: some View {
-        ZStack {
+        Group {
             if isOverlay {
-                Color.black.opacity(0.28)
-                    .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        controller.hide()
-                    }
+                launchpad
+            } else {
+                spotlightWindow
             }
-
-            panel
         }
         .ignoresSafeArea()
         .task {
@@ -71,6 +56,9 @@ struct LauncherView: View {
             searchFocused = true
         }
         .onChange(of: store.searchText) { _, _ in
+            store.currentPage = 0
+        }
+        .onChange(of: store.selectedCategory) { _, _ in
             store.currentPage = 0
         }
         .onChange(of: store.openFolderID) { _, newValue in
@@ -88,34 +76,47 @@ struct LauncherView: View {
         }
     }
 
+    // MARK: - Windowed presentation (Spotlight-style)
+
     @ViewBuilder
-    private var panel: some View {
+    private var spotlightWindow: some View {
         if #available(macOS 26.0, *) {
             launcherContent
-                .padding(panelInset)
                 .glassEffect(
-                    .regular.tint(Color(red: 0.07, green: 0.09, blue: 0.19).opacity(0.62)),
-                    in: RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .regular.tint(Color(red: 0.06, green: 0.07, blue: 0.09).opacity(0.58)),
+                    in: panelShape
                 )
+                .overlay {
+                    panelShape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                }
+                .contentShape(panelShape)
+                .onTapGesture {}
         } else {
             launcherContent
-                .padding(panelInset)
                 .background(LauncherBackground())
-                .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
+                .overlay {
+                    panelShape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                }
+                .contentShape(panelShape)
+                .onTapGesture {}
         }
     }
 
     private var launcherContent: some View {
         VStack(spacing: 0) {
-            SearchBar(text: $store.searchText, isFocused: $searchFocused, onSubmit: launchFirstItem)
-                .frame(maxWidth: 440)
-                .padding(.top, isOverlay ? 36 : 22)
+            header
+                .padding(.top, 22)
 
             if store.isEditingFavorites {
                 FavoritesHint {
                     store.isEditingFavorites = false
                 }
                 .padding(.top, 12)
+            }
+
+            if !store.isSearching {
+                CategoryChips(categories: AppCategory.allCases, selection: $store.selectedCategory)
+                    .padding(.top, 20)
             }
 
             if hasContent {
@@ -126,20 +127,68 @@ struct LauncherView: View {
                     rows: rows,
                     interactive: !store.isSearching
                 )
-                .padding(.top, 14)
-                .padding(.horizontal, gridHorizontalPadding)
+                .padding(.top, 18)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                EmptyState(isSearching: store.isSearching)
+                EmptyState(isSearching: store.isSearching, category: store.selectedCategory)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
-            footer
+            if showsPageDots {
+                PageDots(
+                    count: pageCount,
+                    current: min(max(store.currentPage, 0), pageCount - 1),
+                    onSelect: { store.currentPage = $0 }
+                )
+                .padding(.top, 8)
+            }
         }
-        .padding(.bottom, 8)
+        .padding(.horizontal, 22)
+        .padding(.bottom, showsPageDots ? 8 : 16)
     }
 
-    private var footer: some View {
+    // MARK: - Full-screen presentation (Launchpad-style)
+
+    private var launchpad: some View {
+        ZStack {
+            VisualEffectView(material: .fullScreenUI, blendingMode: .behindWindow)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                CapsuleSearchBar(text: $store.searchText, isFocused: $searchFocused, onSubmit: launchFirstItem)
+                    .frame(maxWidth: 440)
+                    .padding(.top, 36)
+
+                if store.isEditingFavorites {
+                    FavoritesHint {
+                        store.isEditingFavorites = false
+                    }
+                    .padding(.top, 12)
+                }
+
+                if hasContent {
+                    AppsGrid(
+                        store: store,
+                        controller: controller,
+                        columns: columns,
+                        rows: rows,
+                        interactive: !store.isSearching
+                    )
+                    .padding(.top, 14)
+                    .padding(.horizontal, 80)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    EmptyState(isSearching: store.isSearching, category: nil)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+
+                launchpadFooter
+            }
+            .padding(.bottom, 8)
+        }
+    }
+
+    private var launchpadFooter: some View {
         ZStack {
             if showsPageDots {
                 PageDots(
@@ -169,10 +218,39 @@ struct LauncherView: View {
 
                 Spacer()
             }
-            .padding(.horizontal, isOverlay ? 36 : 20)
+            .padding(.horizontal, 36)
         }
         .frame(height: 34)
-        .padding(.bottom, isOverlay ? 22 : 10)
+        .padding(.bottom, 22)
+    }
+
+    private var header: some View {
+        HStack(spacing: 16) {
+            SearchBar(text: $store.searchText, isFocused: $searchFocused, onSubmit: launchFirstItem)
+
+            Menu {
+                Button(store.isEditingFavorites ? "Done Editing Favorites" : "Edit Favorites") {
+                    store.isEditingFavorites.toggle()
+                }
+                Divider()
+                Button("Refresh Apps") { store.reloadApps() }
+                Button("Reset Layout") { store.resetLayout() }
+                Divider()
+                Button("Settings…") { showSettings() }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color.white.opacity(0.09)))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+                    .contentShape(Circle())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("More")
+        }
     }
 
     private func showSettings() {
@@ -236,6 +314,7 @@ private struct FavoritesHint: View {
     }
 }
 
+
 private struct FooterButton: View {
     let systemName: String
     let color: Color
@@ -264,13 +343,21 @@ private struct FooterButton: View {
 
 private struct EmptyState: View {
     let isSearching: Bool
+    let category: AppCategory?
+
+    private var title: String {
+        if isSearching { return "No apps found" }
+        if let category { return "No apps in \(category.title)" }
+        return "No applications"
+    }
 
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: isSearching ? "magnifyingglass" : "square.grid.3x3")
                 .font(.system(size: 34, weight: .light))
-            Text(isSearching ? "No apps found" : "No applications")
+            Text(title)
                 .font(.system(size: 15, weight: .medium))
+                .multilineTextAlignment(.center)
         }
         .foregroundStyle(.white.opacity(0.65))
     }

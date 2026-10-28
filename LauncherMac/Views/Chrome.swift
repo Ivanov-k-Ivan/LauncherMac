@@ -4,24 +4,23 @@ import SwiftUI
 struct LauncherBackground: View {
     var body: some View {
         ZStack {
-            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
+            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
 
             LinearGradient(
                 stops: [
-                    .init(color: Color(red: 0.05, green: 0.08, blue: 0.26), location: 0),
-                    .init(color: Color(red: 0.15, green: 0.11, blue: 0.42), location: 0.55),
-                    .init(color: Color(red: 0.32, green: 0.10, blue: 0.38), location: 1)
+                    .init(color: Color(white: 0.16).opacity(0.78), location: 0),
+                    .init(color: Color(white: 0.10).opacity(0.88), location: 0.5),
+                    .init(color: Color(white: 0.07).opacity(0.92), location: 1)
                 ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                startPoint: .top,
+                endPoint: .bottom
             )
-            .opacity(0.84)
 
             RadialGradient(
-                colors: [Color.white.opacity(0.10), .clear],
+                colors: [Color.white.opacity(0.07), .clear],
                 center: .top,
                 startRadius: 10,
-                endRadius: 720
+                endRadius: 820
             )
         }
         .ignoresSafeArea()
@@ -47,6 +46,53 @@ struct VisualEffectView: NSViewRepresentable {
 }
 
 struct SearchBar: View {
+    @Binding var text: String
+    var isFocused: FocusState<Bool>.Binding
+    var onSubmit: () -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(.white.opacity(0.72))
+                .frame(width: 24)
+
+            ZStack(alignment: .leading) {
+                if text.isEmpty {
+                    Text("Spotlight Search")
+                        .font(.system(size: 22, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .offset(x: 7)
+                        .allowsHitTesting(false)
+                }
+
+                TextField("", text: $text)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundStyle(.white)
+                    .tint(.white.opacity(0.75))
+                    .focused(isFocused)
+                    .onSubmit(onSubmit)
+                    .accessibilityLabel("Search applications")
+            }
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                    isFocused.wrappedValue = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(height: 40)
+    }
+}
+
+struct CapsuleSearchBar: View {
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
     var onSubmit: () -> Void
@@ -82,6 +128,43 @@ struct SearchBar: View {
             Capsule(style: .continuous)
                 .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
         )
+    }
+}
+
+struct CategoryChips: View {
+    let categories: [AppCategory]
+    @Binding var selection: AppCategory?
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(categories) { category in
+                    let isSelected = selection == category
+                    Button {
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            selection = isSelected ? nil : category
+                        }
+                    } label: {
+                        Text(category.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white.opacity(isSelected ? 1 : 0.82))
+                            .padding(.horizontal, 14)
+                            .frame(height: 32)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color.white.opacity(isSelected ? 0.22 : 0.09))
+                            )
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .strokeBorder(Color.white.opacity(isSelected ? 0.32 : 0.06), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .scrollIndicators(.hidden)
     }
 }
 

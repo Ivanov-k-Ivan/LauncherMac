@@ -60,8 +60,8 @@ private struct PagedAppsGrid: View {
     let rowsPerPage: Int
     let interactive: Bool
 
-    private let hSpacing: CGFloat = 16
-    private let vSpacing: CGFloat = 12
+    private let hSpacing: CGFloat = 12
+    private let vSpacing: CGFloat = 14
 
     var body: some View {
         GeometryReader { geo in
@@ -121,7 +121,7 @@ private struct PagedRowsPage: View {
     let vSpacing: CGFloat
     let interactive: Bool
 
-    private let separatorRowHeight: CGFloat = 13
+    private let separatorRowHeight: CGFloat = 14
 
     var body: some View {
         GeometryReader { geo in
@@ -137,7 +137,7 @@ private struct PagedRowsPage: View {
             let available = geo.size.height - (hasSeparator ? separatorRowHeight : 0)
                 - CGFloat(max(0, rows.count - 1)) * vSpacing
             let cellHeight = max(40, available / CGFloat(appRowCount))
-            let iconSide = min(cellWidth * 0.62, cellHeight * 0.68, 132)
+            let iconSide = min(cellWidth * 0.45, cellHeight * 0.6, 96)
 
             VStack(spacing: vSpacing) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
@@ -179,18 +179,22 @@ private struct VerticalAppsGrid: View {
     let columns: Int
     let interactive: Bool
 
-    private let hSpacing: CGFloat = 18
+    private let hSpacing: CGFloat = 14
     private let vSpacing: CGFloat = 18
-    private let separatorRowHeight: CGFloat = 21
+    private let separatorRowHeight: CGFloat = 20
 
     var body: some View {
         GeometryReader { geo in
             let cellWidth = max(1, (geo.size.width - CGFloat(columns - 1) * hSpacing) / CGFloat(columns))
-            let iconSide = min(cellWidth * 0.58, 108)
+            let iconSide = min(cellWidth * 0.45, 96)
             let cellHeight = iconSide + 34
+            let contentHeight = CGFloat(rows.count) * cellHeight
+                + CGFloat(max(0, rows.count - 1)) * vSpacing
+            let extra = max(0, geo.size.height - contentHeight - 16)
+            let rowSpacing = vSpacing + min(extra / CGFloat(max(1, rows.count - 1)), 44)
 
             ScrollView(.vertical) {
-                VStack(spacing: vSpacing) {
+                VStack(spacing: rowSpacing) {
                     ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                         switch row {
                         case .cells(let items):
@@ -258,7 +262,7 @@ private struct ItemCell: View {
     }
 
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 9) {
             icon
                 .frame(width: iconSide, height: iconSide)
                 .overlay(alignment: .topTrailing) {
@@ -273,26 +277,26 @@ private struct ItemCell: View {
                 }
 
             Text(title)
-                .font(.system(size: max(10, min(13, iconSide * 0.125))))
+                .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.92))
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .shadow(color: .black.opacity(0.35), radius: 1, y: 1)
-                .frame(width: max(40, cellWidth - 10))
+                .frame(width: max(40, cellWidth - 8))
         }
         .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(isHovering ? 0.09 : 0))
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(isHovering || isTargeted ? 0.08 : 0))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Color.accentColor.opacity(isTargeted ? 0.95 : 0), lineWidth: 2)
         )
         .scaleEffect(isTargeted ? 1.04 : 1)
         .animation(.easeOut(duration: 0.14), value: isHovering)
         .animation(.easeOut(duration: 0.14), value: isTargeted)
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .onHover { isHovering = $0 }
         .onTapGesture(perform: activate)
         .modifier(AppDrag(item: item))

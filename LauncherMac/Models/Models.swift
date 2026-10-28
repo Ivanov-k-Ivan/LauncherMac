@@ -4,6 +4,7 @@ struct AppInfo: Identifiable, Hashable {
     let url: URL
     let name: String
     let icon: NSImage
+    let category: AppCategory?
 
     var id: String { url.standardizedFileURL.path }
 
@@ -11,6 +12,58 @@ struct AppInfo: Identifiable, Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+enum AppCategory: String, CaseIterable, Identifiable, Hashable {
+    case developerTools
+    case utilities
+    case productivityFinance
+    case creativity
+    case social
+    case entertainment
+    case informationReading
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .developerTools: return "Developer Tools"
+        case .utilities: return "Utilities"
+        case .productivityFinance: return "Productivity & Finance"
+        case .creativity: return "Creativity"
+        case .social: return "Social"
+        case .entertainment: return "Entertainment"
+        case .informationReading: return "Information & Reading"
+        }
+    }
+
+    static func from(launchServicesCategory raw: String?) -> AppCategory? {
+        guard let raw else { return nil }
+        switch raw {
+        case "public.app-category.developer-tools":
+            return .developerTools
+        case "public.app-category.utilities":
+            return .utilities
+        case "public.app-category.productivity", "public.app-category.finance",
+             "public.app-category.business":
+            return .productivityFinance
+        case "public.app-category.graphics-design", "public.app-category.graphics-and-design",
+             "public.app-category.photography", "public.app-category.video",
+             "public.app-category.music":
+            return .creativity
+        case "public.app-category.social-networking":
+            return .social
+        case "public.app-category.entertainment", "public.app-category.games":
+            return .entertainment
+        case "public.app-category.reference", "public.app-category.news",
+             "public.app-category.education", "public.app-category.books",
+             "public.app-category.travel":
+            return .informationReading
+        default:
+            if raw.hasSuffix("-games") { return .entertainment }
+            return nil
+        }
     }
 }
 

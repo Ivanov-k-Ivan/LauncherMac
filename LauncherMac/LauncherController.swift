@@ -161,6 +161,9 @@ final class LauncherController: ObservableObject {
             window.isReleasedWhenClosed = false
             window.acceptsMouseMovedEvents = true
             window.contentView = hosting
+            window.standardWindowButton(.closeButton)?.isHidden = true
+            window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+            window.standardWindowButton(.zoomButton)?.isHidden = true
             window.setFrameAutosaveName("LauncherWindow")
             if !window.setFrameUsingName("LauncherWindow") {
                 window.center()

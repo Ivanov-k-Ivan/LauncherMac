@@ -10,6 +10,7 @@ final class LauncherStore: ObservableObject {
     @Published var currentPage = 0
     @Published private(set) var favoriteIDs: [String] = []
     @Published var isEditingFavorites = false
+    @Published var selectedCategory: AppCategory?
 
     private let defaults = UserDefaults.standard
     private let layoutKey = "launcher.layout.v1"
@@ -32,14 +33,25 @@ final class LauncherStore: ObservableObject {
             return searchResults.map { .app($0.id) }
         }
         let favoriteSet = Set(favoriteIDs)
+        let category = selectedCategory
         return items.compactMap { item in
-            if case .app(let appID) = item, favoriteSet.contains(appID) { return nil }
-            return item
+            switch item {
+            case .app(let appID):
+                if favoriteSet.contains(appID) { return nil }
+                if let category, appsByID[appID]?.category != category { return nil }
+                return item
+            case .folder(let folder):
+                guard let category else { return item }
+                let containsCategory = folder.appIDs.contains { appsByID[$0]?.category == category }
+                return containsCategory ? item : nil
+            }
         }
     }
 
     var favoriteApps: [AppInfo] {
-        favoriteIDs.compactMap { appsByID[$0] }
+        favoriteIDs.compactMap { appsByID[$0] }.filter { app in
+            selectedCategory == nil || app.category == selectedCategory
+        }
     }
 
     func isFavorite(_ appID: String) -> Bool {
@@ -82,6 +94,7 @@ final class LauncherStore: ObservableObject {
         openFolderID = nil
         currentPage = 0
         isEditingFavorites = false
+        selectedCategory = nil
     }
 
     // MARK: - Apps

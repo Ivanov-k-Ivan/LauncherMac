@@ -3,8 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     let controller: LauncherController
 
-    @AppStorage("gridColumns") private var columns = 8
-    @AppStorage("gridRows") private var rows = 5
+    @AppStorage("gridColumns") private var columns = 7
+    @AppStorage("gridRows") private var rows = 4
     @AppStorage("presentationMode") private var presentationMode = LauncherController.Presentation.window.rawValue
     @AppStorage("globalHotKeyEnabled") private var hotKeyEnabled = true
     @AppStorage("scrollMode") private var scrollMode = ScrollMode.vertical.rawValue

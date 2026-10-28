@@ -25,13 +25,14 @@ xcodebuild -project LauncherMac.xcodeproj -scheme LauncherMac -configuration Rel
 - **Close** — press Esc, click an app to launch it, or switch to another app.
 - **Search** — start typing; Return launches the first result.
 - **Pages** — swipe horizontally (or click the dots) when you have more apps than fit on one page.
-- **Favorites** — click the heart next to the gear, then tap apps to add or remove them. Favorites are the first rows of the grid, separated from the rest by a divider, and scroll with everything else. Press Esc or Done when finished. You can also right-click any app to add/remove it.
+- **Categories** — click a category chip below the search field to filter apps by kind; click it again to show everything.
+- **Favorites** — open the **•••** menu at the top-right and choose **Edit Favorites**, then tap apps to add or remove them. Favorites are the first rows of the grid, separated from the rest by a divider, and scroll with everything else. Press Esc or Done when finished. You can also right-click any app to add/remove it.
 - **Folders** — drag one app onto another to create a folder. Click a folder to open it, edit its name at the top, and drag apps out (onto the dimmed background, or use the context menu) to remove them. A folder with one app becomes a normal app again.
-- **Settings** — click the gear in the bottom-left corner, or press ⌘, from the app menu.
+- **Settings** — open the **•••** menu at the top-right, or press ⌘, from the app menu.
 
 ### Settings
 
-- **Grid** — columns (4–12) and rows (3–8); the default is 8 × 5.
+- **Grid** — columns (4–12) and rows (3–8); the default is 7 × 4.
 - **Scrolling** — one continuous vertical grid (default), or horizontal pages with two-finger swipe / dots.
 - **Presentation** — a regular resizable window (default) or a full-screen overlay (Launchpad style, hides the Dock and menu bar while open).
 - **Shortcut** — enable/disable the ⌥Space global shortcut.

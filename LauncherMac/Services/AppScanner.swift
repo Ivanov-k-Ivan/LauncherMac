@@ -28,15 +28,23 @@ enum AppScanner {
 
                 let icon = NSWorkspace.shared.icon(forFile: key)
                 icon.size = NSSize(width: 256, height: 256)
-                apps.append(AppInfo(url: url, name: displayName(for: url), icon: icon))
+                let bundle = Bundle(url: url)
+                apps.append(AppInfo(
+                    url: url,
+                    name: displayName(for: url, bundle: bundle),
+                    icon: icon,
+                    category: AppCategory.from(
+                        launchServicesCategory: bundle?.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String
+                    )
+                ))
             }
         }
 
         return apps.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    private static func displayName(for url: URL) -> String {
-        if let bundle = Bundle(url: url) {
+    private static func displayName(for url: URL, bundle: Bundle?) -> String {
+        if let bundle {
             for key in ["CFBundleDisplayName", "CFBundleName"] {
                 if let name = bundle.object(forInfoDictionaryKey: key) as? String, !name.isEmpty {
                     return name
