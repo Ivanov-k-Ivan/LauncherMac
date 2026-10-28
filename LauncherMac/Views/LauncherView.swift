@@ -209,12 +209,6 @@ struct LauncherView: View {
                 store.isEditingFavorites.toggle()
             }
             Divider()
-            Button("Refresh Apps") { store.reloadApps() }
-            Button("Reset Layout") {
-                store.resetLayout()
-                controller.resetWindowSize()
-            }
-            Divider()
             Button("Settings…") { showSettings() }
         } label: {
             Image(systemName: "ellipsis")
