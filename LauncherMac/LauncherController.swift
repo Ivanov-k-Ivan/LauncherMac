@@ -151,7 +151,7 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
 
         case .window:
             let window = LauncherPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 1120, height: 720),
+                contentRect: NSRect(x: 0, y: 0, width: 844, height: 596),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -171,8 +171,8 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
             window.standardWindowButton(.closeButton)?.isHidden = true
             window.standardWindowButton(.miniaturizeButton)?.isHidden = true
             window.standardWindowButton(.zoomButton)?.isHidden = true
-            window.setFrameAutosaveName("LauncherWindow")
-            if !window.setFrameUsingName("LauncherWindow") {
+            window.setFrameAutosaveName("LauncherWindow-v2")
+            if !window.setFrameUsingName("LauncherWindow-v2") {
                 window.center()
             }
             return window
