@@ -17,6 +17,7 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
     private static let windowAutosaveName = "LauncherWindow-v2"
 
     private var window: NSWindow?
+    private weak var settingsWindow: NSWindow?
     private var keyMonitor: Any?
     private var activationObserver: NSObjectProtocol?
     private var hotKey: HotKey?
@@ -112,7 +113,11 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
 
     func presentationChanged() {
         guard window?.isVisible == true else { return }
+        let settingsWasVisible = settingsWindow?.isVisible == true
         show()
+        if settingsWasVisible {
+            raiseSettingsWindow()
+        }
     }
 
     func launch(_ app: AppInfo) {
@@ -195,6 +200,16 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
         window.setFrame(frame, display: true)
         window.center()
         window.saveFrame(usingName: Self.windowAutosaveName)
+    }
+
+    func raiseSettingsWindow() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let launcher = self.window else { return }
+            guard let settings = NSApp.windows.first(where: { $0 !== launcher && $0.isVisible }) else { return }
+            self.settingsWindow = settings
+            settings.level = NSWindow.Level(rawValue: launcher.level.rawValue + 1)
+            settings.makeKeyAndOrderFront(nil)
+        }
     }
 
     func windowDidResignKey(_ notification: Notification) {

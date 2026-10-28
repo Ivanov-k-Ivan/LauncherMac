@@ -297,8 +297,8 @@ private struct PagedAppsGrid: View {
     @ObservedObject var dragState: GridDragState
     let ghost: DragGhostState
 
-    private let hSpacing: CGFloat = 16
-    private let vSpacing: CGFloat = 14
+    private let hSpacing: CGFloat = 18
+    private let vSpacing: CGFloat = 18
 
     var body: some View {
         GeometryReader { geo in
@@ -362,64 +362,77 @@ private struct PagedRowsPage: View {
     @ObservedObject var dragState: GridDragState
     let ghost: DragGhostState
 
-    private let separatorRowHeight: CGFloat = 14
+    private let separatorRowHeight: CGFloat = 20
+    private let labelHeight: CGFloat = 34
 
     var body: some View {
         GeometryReader { geo in
             let cellWidth = max(1, (geo.size.width - CGFloat(columns - 1) * hSpacing) / CGFloat(columns))
-            let hasSeparator = rows.contains { row in
-                if case .separator = row { return true }
-                return false
-            }
-            let appRowCount = max(1, rows.reduce(0) { count, row in
-                if case .cells = row { return count + 1 }
+            let iconSide = min(cellWidth * 0.77, 108)
+            let cellHeight = iconSide + labelHeight
+            let spacerHeight = cellHeight / 8
+            let spacerCount = rows.reduce(0) { count, row in
+                if case .spacer = row { return count + 1 }
                 return count
-            })
-            let available = geo.size.height - (hasSeparator ? separatorRowHeight : 0)
-                - CGFloat(max(0, rows.count - 1)) * vSpacing
-            let cellHeight = max(40, available / CGFloat(appRowCount))
-            let iconSide = min(cellWidth * 0.62, cellHeight * 0.68, 132)
+            }
+            let contentHeight = CGFloat(rows.count - spacerCount) * cellHeight
+                + CGFloat(spacerCount) * spacerHeight
+                + CGFloat(max(0, rows.count - 1 - spacerCount)) * vSpacing
+            let extra = max(0, geo.size.height - contentHeight - 16)
+            let rowSpacing = vSpacing + min(extra / CGFloat(max(1, rows.count - 1)), 44)
 
-            VStack(spacing: vSpacing) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                    switch row {
-                    case .cells(let items):
-                        HStack(spacing: hSpacing) {
-                            ForEach(0 ..< columns, id: \.self) { index in
-                                if index < items.count {
-                                    ItemCell(
-                                        item: items[index],
-                                        store: store,
-                                        controller: controller,
-                                        iconSide: iconSide,
-                                        cellWidth: cellWidth,
-                                        interactive: interactive,
-                                        dragState: dragState,
-                                        ghost: ghost
-                                    )
-                                    .frame(width: cellWidth, height: cellHeight)
-                                } else {
-                                    Color.clear
-                                        .frame(width: cellWidth, height: cellHeight)
+            ScrollView(.vertical) {
+                VStack(spacing: 0) {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                        Group {
+                            switch row {
+                            case .cells(let items):
+                                HStack(spacing: hSpacing) {
+                                    ForEach(0 ..< columns, id: \.self) { index in
+                                        if index < items.count {
+                                            ItemCell(
+                                                item: items[index],
+                                                store: store,
+                                                controller: controller,
+                                                iconSide: iconSide,
+                                                cellWidth: cellWidth,
+                                                interactive: interactive,
+                                                dragState: dragState,
+                                                ghost: ghost
+                                            )
+                                            .frame(width: cellWidth, height: cellHeight)
+                                        } else {
+                                            Color.clear
+                                                .frame(width: cellWidth, height: cellHeight)
+                                        }
+                                    }
                                 }
+
+                            case .separator:
+                                Rectangle()
+                                    .fill(Color.white.opacity(0.12))
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 8)
+                                    .frame(height: separatorRowHeight)
+
+                            case .spacer:
+                                Color.clear
+                                    .frame(height: spacerHeight)
                             }
                         }
-
-                    case .separator:
-                        Rectangle()
-                            .fill(Color.white.opacity(0.12))
-                            .frame(height: 1)
-                            .frame(maxHeight: separatorRowHeight)
-                            .padding(.horizontal, 8)
-
-                    case .spacer:
-                        Color.clear
-                            .frame(height: cellHeight)
+                        .padding(.top, index == 0 || isSpacer(row) ? 0 : rowSpacing)
                     }
                 }
+                .frame(width: geo.size.width)
+                .padding(.vertical, 8)
             }
-            .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+            .scrollIndicators(.hidden)
         }
+    }
+
+    private func isSpacer(_ row: GridRow) -> Bool {
+        if case .spacer = row { return true }
+        return false
     }
 }
 

@@ -54,6 +54,22 @@ struct SettingsView: View {
                     controller.resetWindowSize()
                 }
             }
+
+            Section {
+                Button {
+                    columns = 7
+                    rows = 4
+                    scrollMode = ScrollMode.vertical.rawValue
+                    presentationMode = LauncherController.Presentation.window.rawValue
+                    controller.store.resetToDefault()
+                    DispatchQueue.main.async {
+                        controller.resetWindowSize()
+                    }
+                } label: {
+                    Text("Reset to Default")
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 420)

@@ -141,6 +141,16 @@ final class LauncherStore: ObservableObject {
         save()
     }
 
+    func resetToDefault() {
+        defaults.removeObject(forKey: layoutKey)
+        favoriteIDs = []
+        saveFavorites()
+        openFolderID = nil
+        currentPage = 0
+        let scanned = appsByID.values.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        reconcile(with: scanned)
+    }
+
     // MARK: - Layout mutations
 
     /// Moves a root app or folder next to another root item.

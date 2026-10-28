@@ -251,7 +251,7 @@ struct LauncherView: View {
         DispatchQueue.main.async {
             NSApp.activate()
             openSettings()
-            controller.hide()
+            controller.raiseSettingsWindow()
         }
     }
 
