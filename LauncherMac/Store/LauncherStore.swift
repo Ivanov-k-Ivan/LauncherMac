@@ -121,15 +121,51 @@ final class LauncherStore: ObservableObject {
     }
 
     func resetLayout() {
-        items = appsByID.values
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            .map { .app($0.id) }
+        items = items.sorted { displayName(for: $0).localizedStandardCompare(displayName(for: $1)) == .orderedAscending }
         openFolderID = nil
         currentPage = 0
         save()
     }
 
     // MARK: - Layout mutations
+
+    /// Moves a root app or folder next to another root item.
+    func moveRootItem(_ moved: DragPayload.Moved, relativeTo target: RootItem, placeAfter: Bool) {
+        let movedID: String
+        switch moved {
+        case .app(let appID): movedID = "app:" + appID
+        case .folder(let id): movedID = "folder:" + id.uuidString
+        }
+        guard movedID != target.id,
+              items.contains(where: { $0.id == target.id }),
+              let sourceIndex = items.firstIndex(where: { $0.id == movedID }) else { return }
+
+        let item = items.remove(at: sourceIndex)
+        guard let targetIndex = items.firstIndex(where: { $0.id == target.id }) else {
+            items.append(item)
+            save()
+            return
+        }
+
+        let insertion = min(max(0, placeAfter ? targetIndex + 1 : targetIndex), items.count)
+        items.insert(item, at: insertion)
+        save()
+    }
+
+    /// Removes a folder and returns its apps to the main grid in its place.
+    func deleteFolder(id: UUID) {
+        guard let index = items.firstIndex(where: {
+            if case .folder(let folder) = $0 { return folder.id == id }
+            return false
+        }), case .folder(let folder) = items[index] else { return }
+
+        items.remove(at: index)
+        items.insert(contentsOf: folder.appIDs.map { RootItem.app($0) }, at: index)
+        if openFolderID == id {
+            openFolderID = nil
+        }
+        save()
+    }
 
     /// Drops an app onto a root item, or onto the empty background when `target` is nil.
     func dropApp(_ appID: String, onto target: RootItem?) {
@@ -184,6 +220,13 @@ final class LauncherStore: ObservableObject {
     }
 
     // MARK: - Private helpers
+
+    private func displayName(for item: RootItem) -> String {
+        switch item {
+        case .app(let appID): return appsByID[appID]?.name ?? appID
+        case .folder(let folder): return folder.name
+        }
+    }
 
     private func removeRootApp(_ appID: String) {
         items.removeAll {

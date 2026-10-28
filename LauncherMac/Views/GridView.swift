@@ -326,7 +326,16 @@ private struct ItemCell: View {
         .onHover { isHovering = $0 }
         .onTapGesture(perform: activate)
         .modifier(AppDrag(item: item))
-        .modifier(AppDrop(item: item, store: store, enabled: interactive, isTargeted: $isTargeted))
+        .onDrop(
+            of: [.plainText],
+            delegate: ItemDropDelegate(
+                item: item,
+                store: store,
+                enabled: interactive,
+                cellWidth: cellWidth,
+                isTargeted: $isTargeted
+            )
+        )
         .contextMenu {
             if let appID, let app = store.app(for: appID) {
                 Button("Open") { controller.launch(app) }
@@ -413,35 +422,69 @@ struct FolderIconView: View {
 private struct AppDrag: ViewModifier {
     let item: RootItem
 
-    @ViewBuilder
+    @State private var isMoveDrag = false
+
     func body(content: Content) -> some View {
-        switch item {
-        case .app(let appID):
-            content.onDrag { NSItemProvider(object: DragPayload.app(appID) as NSString) }
-        case .folder(let folder):
-            content.onDrag { NSItemProvider(object: DragPayload.folder(folder.id) as NSString) }
-        }
+        content
+            .onLongPressGesture(minimumDuration: 0.35, maximumDistance: 14) {
+                isMoveDrag = true
+            } onPressingChanged: { pressing in
+                if !pressing {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        isMoveDrag = false
+                    }
+                }
+            }
+            .onDrag {
+                let payload: String
+                switch item {
+                case .app(let appID):
+                    payload = isMoveDrag ? DragPayload.movedApp(appID) : DragPayload.app(appID)
+                case .folder(let folder):
+                    payload = isMoveDrag ? DragPayload.movedFolder(folder.id) : DragPayload.folder(folder.id)
+                }
+                if isMoveDrag {
+                    DispatchQueue.main.async { isMoveDrag = false }
+                }
+                return NSItemProvider(object: payload as NSString)
+            }
     }
 }
 
-private struct AppDrop: ViewModifier {
+private struct ItemDropDelegate: DropDelegate {
     let item: RootItem
-    @ObservedObject var store: LauncherStore
+    let store: LauncherStore
     let enabled: Bool
+    let cellWidth: CGFloat
     @Binding var isTargeted: Bool
 
-    func body(content: Content) -> some View {
-        content.onDrop(of: [.plainText], isTargeted: $isTargeted) { providers in
-            guard enabled, let provider = providers.first else { return false }
+    func validateDrop(info: DropInfo) -> Bool {
+        enabled
+    }
 
-            provider.loadObject(ofClass: NSString.self) { object, _ in
-                guard let payload = object as? String,
-                      let appID = DragPayload.appID(from: payload) else { return }
-                DispatchQueue.main.async {
+    func dropEntered(info: DropInfo) {
+        isTargeted = true
+    }
+
+    func dropExited(info: DropInfo) {
+        isTargeted = false
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        isTargeted = false
+        guard enabled, let provider = info.itemProviders(for: [.plainText]).first else { return false }
+
+        let placeAfter = info.location.x > cellWidth / 2
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let payload = object as? String else { return }
+            DispatchQueue.main.async {
+                if let moved = DragPayload.movedItem(from: payload) {
+                    store.moveRootItem(moved, relativeTo: item, placeAfter: placeAfter)
+                } else if let appID = DragPayload.appID(from: payload) {
                     store.dropApp(appID, onto: item)
                 }
             }
-            return true
         }
+        return true
     }
 }

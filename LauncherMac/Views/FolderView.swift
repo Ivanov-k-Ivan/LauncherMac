@@ -9,6 +9,7 @@ struct FolderView: View {
 
     @State private var name: String
     @State private var isTargeted = false
+    @State private var showDeleteConfirmation = false
     @FocusState private var nameFocused: Bool
 
     private let spacing: CGFloat = 18
@@ -106,7 +107,31 @@ struct FolderView: View {
                         .strokeBorder(Color.white.opacity(isTargeted ? 0.55 : 0.15), lineWidth: 1)
                 )
                 .shadow(color: .black.opacity(0.45), radius: 34, y: 22)
+                .overlay(alignment: .topTrailing) {
+                    Button {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(width: 26, height: 26)
+                            .background(Circle().fill(Color.white.opacity(0.12)))
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Delete Folder")
+                    .padding(14)
+                }
             }
+        }
+        .alert("Delete Folder?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                store.deleteFolder(id: folder.id)
+            }
+        } message: {
+            Text("The apps in “\(folder.name)” will be moved back to the app grid.")
         }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {

@@ -130,15 +130,35 @@ enum ScrollMode: String {
 }
 
 enum DragPayload {
+    enum Moved: Hashable {
+        case app(String)
+        case folder(UUID)
+    }
+
     static let appPrefix = "launcher-app://"
     static let folderPrefix = "launcher-folder://"
+    static let movedAppPrefix = "launcher-move-app://"
+    static let movedFolderPrefix = "launcher-move-folder://"
 
     static func app(_ id: String) -> String { appPrefix + id }
     static func folder(_ id: UUID) -> String { folderPrefix + id.uuidString }
+    static func movedApp(_ id: String) -> String { movedAppPrefix + id }
+    static func movedFolder(_ id: UUID) -> String { movedFolderPrefix + id.uuidString }
 
     static func appID(from payload: String) -> String? {
         guard payload.hasPrefix(appPrefix) else { return nil }
         return String(payload.dropFirst(appPrefix.count))
+    }
+
+    static func movedItem(from payload: String) -> Moved? {
+        if payload.hasPrefix(movedAppPrefix) {
+            return .app(String(payload.dropFirst(movedAppPrefix.count)))
+        }
+        if payload.hasPrefix(movedFolderPrefix),
+           let id = UUID(uuidString: String(payload.dropFirst(movedFolderPrefix.count))) {
+            return .folder(id)
+        }
+        return nil
     }
 }
 
