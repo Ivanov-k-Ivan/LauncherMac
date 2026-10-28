@@ -3,7 +3,7 @@ import Carbon.HIToolbox
 import SwiftUI
 
 @MainActor
-final class LauncherController: ObservableObject {
+final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
     static let shared = LauncherController()
 
     let store = LauncherStore()
@@ -19,7 +19,9 @@ final class LauncherController: ObservableObject {
     private var hotKey: HotKey?
     private var hidSystemUI = false
 
-    private init() {}
+    private override init() {
+        super.init()
+    }
 
     var presentation: Presentation {
         Presentation(rawValue: UserDefaults.standard.string(forKey: "presentationMode") ?? "") ?? .window
@@ -76,6 +78,7 @@ final class LauncherController: ObservableObject {
         store.reloadAppsIfStale()
 
         let newWindow = makeWindow()
+        newWindow.delegate = self
         window = newWindow
 
         NSApp.activate()
@@ -169,6 +172,16 @@ final class LauncherController: ObservableObject {
                 window.center()
             }
             return window
+        }
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let window = self.window, window.isVisible else { return }
+            if NSApp.isActive, let keyWindow = NSApp.keyWindow, keyWindow !== window {
+                return
+            }
+            self.hide()
         }
     }
 
