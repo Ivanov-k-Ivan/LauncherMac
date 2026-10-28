@@ -257,7 +257,9 @@ struct AppsGrid: View {
             GeometryReader { geo in
                 let origin = geo.frame(in: .global).origin
                 ZStack {
-                    if let item = dragState.source, let location = ghost.location {
+                    if dragState.insertionPoint() == nil,
+                       let item = dragState.source,
+                       let location = ghost.location {
                         DragPreview(item: item, store: store)
                             .position(x: location.x - origin.x, y: location.y - origin.y)
                     }
@@ -569,7 +571,7 @@ private struct ItemCell: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white.opacity(isHovering || isDropTarget ? 0.08 : 0))
+                .fill(Color.white.opacity(dragState.source == nil && isHovering ? 0.08 : 0))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)

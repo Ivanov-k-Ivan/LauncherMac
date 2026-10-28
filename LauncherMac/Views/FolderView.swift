@@ -305,7 +305,8 @@ struct FolderView: View {
                 GeometryReader { geo in
                     let origin = geo.frame(in: .global).origin
                     ZStack {
-                        if let appID = drag.appID,
+                        if drag.insertionPoint() == nil,
+                           let appID = drag.appID,
                            let app = store.app(for: appID),
                            let location = drag.location {
                             Image(nsImage: app.icon)
@@ -396,7 +397,7 @@ private struct FolderAppCell: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(isHovering || drag.targetID == app.id ? 0.09 : 0))
+                .fill(Color.white.opacity(drag.appID == nil && isHovering ? 0.09 : 0))
         )
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
