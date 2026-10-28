@@ -68,6 +68,20 @@ final class LauncherStore: ObservableObject {
         saveFavorites()
     }
 
+    /// Reorders a favorite app relative to another favorite app.
+    func reorderFavorite(_ appID: String, relativeTo targetID: String, placeAfter: Bool) {
+        guard appID != targetID,
+              let sourceIndex = favoriteIDs.firstIndex(of: appID),
+              favoriteIDs.contains(targetID) else { return }
+
+        favoriteIDs.remove(at: sourceIndex)
+        guard let targetIndex = favoriteIDs.firstIndex(of: targetID) else { return }
+
+        let insertion = min(max(0, placeAfter ? targetIndex + 1 : targetIndex), favoriteIDs.count)
+        favoriteIDs.insert(appID, at: insertion)
+        saveFavorites()
+    }
+
     var searchResults: [AppInfo] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return [] }

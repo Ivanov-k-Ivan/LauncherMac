@@ -50,7 +50,12 @@ private final class GridDragState: ObservableObject {
 
         if let slot, !isNoOp(slot, sourceID: source.id),
            let target = rootItem(for: slot.targetID, store: store) {
-            store.moveRootItem(movedSource(source), relativeTo: target, placeAfter: slot.placeAfter)
+            if case .app(let appID) = source, case .app(let targetAppID) = target,
+               store.isFavorite(appID), store.isFavorite(targetAppID) {
+                store.reorderFavorite(appID, relativeTo: targetAppID, placeAfter: slot.placeAfter)
+            } else {
+                store.moveRootItem(movedSource(source), relativeTo: target, placeAfter: slot.placeAfter)
+            }
         } else if let iconID, iconID != source.id, case .app(let appID) = source,
                   let target = rootItem(for: iconID, store: store) {
             store.dropApp(appID, onto: target)
