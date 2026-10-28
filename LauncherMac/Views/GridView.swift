@@ -13,6 +13,7 @@ struct AppsGrid: View {
     let columns: Int
     let rows: Int
     let interactive: Bool
+    var fadeEdges = false
 
     @AppStorage("scrollMode") private var scrollMode = ScrollMode.vertical.rawValue
 
@@ -46,7 +47,8 @@ struct AppsGrid: View {
                 store: store,
                 controller: controller,
                 columns: columns,
-                interactive: interactive
+                interactive: interactive,
+                fadeEdges: fadeEdges
             )
         }
     }
@@ -182,6 +184,7 @@ private struct VerticalAppsGrid: View {
     let controller: LauncherController
     let columns: Int
     let interactive: Bool
+    let fadeEdges: Bool
 
     private let hSpacing: CGFloat = 18
     private let vSpacing: CGFloat = 18
@@ -234,6 +237,21 @@ private struct VerticalAppsGrid: View {
                 .padding(.vertical, 8)
             }
             .scrollIndicators(.hidden)
+            .mask {
+                if fadeEdges {
+                    VStack(spacing: 0) {
+                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 20)
+                        Rectangle()
+                            .fill(.black)
+                        LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 34)
+                    }
+                } else {
+                    Rectangle()
+                        .fill(.black)
+                }
+            }
         }
     }
 }

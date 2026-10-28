@@ -114,7 +114,8 @@ struct LauncherView: View {
                     controller: controller,
                     columns: columns,
                     rows: rows,
-                    interactive: !store.isSearching
+                    interactive: !store.isSearching,
+                    fadeEdges: true
                 )
                 .padding(.top, 18)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
