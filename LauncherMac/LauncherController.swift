@@ -65,8 +65,7 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
 
     func showIfNeeded() {
         if let window, window.isVisible {
-            NSApp.activate()
-            window.makeKeyAndOrderFront(nil)
+            bringToFront(window)
             return
         }
         show()
@@ -81,8 +80,6 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
         newWindow.delegate = self
         window = newWindow
 
-        NSApp.activate()
-
         if presentation == .overlay {
             if let screen = screenUnderMouse() {
                 newWindow.setFrame(screen.frame, display: true)
@@ -91,8 +88,14 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
             hidSystemUI = true
         }
 
-        newWindow.makeKeyAndOrderFront(nil)
+        bringToFront(newWindow)
         installKeyMonitor()
+    }
+
+    private func bringToFront(_ window: NSWindow) {
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
     }
 
     func hide() {
@@ -155,6 +158,7 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
             )
             window.appearance = NSAppearance(named: .darkAqua)
             window.title = "Launcher"
+            window.level = .floating
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.isMovableByWindowBackground = true
