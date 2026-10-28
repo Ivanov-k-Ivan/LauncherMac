@@ -193,6 +193,7 @@ private struct IconFramePreferenceKey: PreferenceKey {
 private enum GridRow {
     case cells([RootItem])
     case separator
+    case spacer
 }
 
 struct AppsGrid: View {
@@ -202,6 +203,7 @@ struct AppsGrid: View {
     let rows: Int
     let interactive: Bool
     var fadeEdges = false
+    var trailingSpacer = false
 
     @AppStorage("scrollMode") private var scrollMode = ScrollMode.vertical.rawValue
     @StateObject private var dragState = GridDragState()
@@ -218,6 +220,9 @@ struct AppsGrid: View {
             result.append(.separator)
         }
         result += store.pageItems.chunked(into: max(1, columns)).map { .cells($0) }
+        if trailingSpacer {
+            result.append(.spacer)
+        }
         return result
     }
 
@@ -401,6 +406,10 @@ private struct PagedRowsPage: View {
                             .frame(height: 1)
                             .frame(maxHeight: separatorRowHeight)
                             .padding(.horizontal, 8)
+
+                    case .spacer:
+                        Color.clear
+                            .frame(height: cellHeight)
                     }
                 }
             }
@@ -428,44 +437,57 @@ private struct VerticalAppsGrid: View {
             let cellWidth = max(1, (geo.size.width - CGFloat(columns - 1) * hSpacing) / CGFloat(columns))
             let iconSide = min(cellWidth * 0.77, 108)
             let cellHeight = iconSide + 34
-            let contentHeight = CGFloat(rows.count) * cellHeight
-                + CGFloat(max(0, rows.count - 1)) * vSpacing
+            let spacerHeight = cellHeight / 8
+            let spacerCount = rows.reduce(0) { count, row in
+                if case .spacer = row { return count + 1 }
+                return count
+            }
+            let contentHeight = CGFloat(rows.count - spacerCount) * cellHeight
+                + CGFloat(spacerCount) * spacerHeight
+                + CGFloat(max(0, rows.count - 1 - spacerCount)) * vSpacing
             let extra = max(0, geo.size.height - contentHeight - 16)
             let rowSpacing = vSpacing + min(extra / CGFloat(max(1, rows.count - 1)), 44)
 
             ScrollView(.vertical) {
-                VStack(spacing: rowSpacing) {
-                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                        switch row {
-                        case .cells(let items):
-                            HStack(spacing: hSpacing) {
-                                ForEach(0 ..< columns, id: \.self) { index in
-                                    if index < items.count {
-                                        ItemCell(
-                                            item: items[index],
-                                            store: store,
-                                            controller: controller,
-                                            iconSide: iconSide,
-                                            cellWidth: cellWidth,
-                                            interactive: interactive,
-                                            dragState: dragState,
-                                            ghost: ghost
-                                        )
-                                        .frame(width: cellWidth, height: cellHeight)
-                                    } else {
-                                        Color.clear
+                VStack(spacing: 0) {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                        Group {
+                            switch row {
+                            case .cells(let items):
+                                HStack(spacing: hSpacing) {
+                                    ForEach(0 ..< columns, id: \.self) { index in
+                                        if index < items.count {
+                                            ItemCell(
+                                                item: items[index],
+                                                store: store,
+                                                controller: controller,
+                                                iconSide: iconSide,
+                                                cellWidth: cellWidth,
+                                                interactive: interactive,
+                                                dragState: dragState,
+                                                ghost: ghost
+                                            )
                                             .frame(width: cellWidth, height: cellHeight)
+                                        } else {
+                                            Color.clear
+                                                .frame(width: cellWidth, height: cellHeight)
+                                        }
                                     }
                                 }
-                            }
 
-                        case .separator:
-                            Rectangle()
-                                .fill(Color.white.opacity(0.12))
-                                .frame(height: 1)
-                                .padding(.horizontal, 8)
-                                .frame(height: separatorRowHeight)
+                            case .separator:
+                                Rectangle()
+                                    .fill(Color.white.opacity(0.12))
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 8)
+                                    .frame(height: separatorRowHeight)
+
+                            case .spacer:
+                                Color.clear
+                                    .frame(height: spacerHeight)
+                            }
                         }
+                        .padding(.top, index == 0 || isSpacer(row) ? 0 : rowSpacing)
                     }
                 }
                 .frame(width: geo.size.width)
@@ -488,6 +510,11 @@ private struct VerticalAppsGrid: View {
                 }
             }
         }
+    }
+
+    private func isSpacer(_ row: GridRow) -> Bool {
+        if case .spacer = row { return true }
+        return false
     }
 }
 

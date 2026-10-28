@@ -115,7 +115,8 @@ struct LauncherView: View {
                     columns: columns,
                     rows: rows,
                     interactive: !store.isSearching,
-                    fadeEdges: true
+                    fadeEdges: true,
+                    trailingSpacer: scrollMode == ScrollMode.vertical.rawValue
                 )
                 .padding(.top, 18)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
