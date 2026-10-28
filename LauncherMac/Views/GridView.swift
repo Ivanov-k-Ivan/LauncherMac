@@ -60,7 +60,7 @@ private struct PagedAppsGrid: View {
     let rowsPerPage: Int
     let interactive: Bool
 
-    private let hSpacing: CGFloat = 12
+    private let hSpacing: CGFloat = 16
     private let vSpacing: CGFloat = 14
 
     var body: some View {
@@ -137,7 +137,7 @@ private struct PagedRowsPage: View {
             let available = geo.size.height - (hasSeparator ? separatorRowHeight : 0)
                 - CGFloat(max(0, rows.count - 1)) * vSpacing
             let cellHeight = max(40, available / CGFloat(appRowCount))
-            let iconSide = min(cellWidth * 0.45, cellHeight * 0.6, 96)
+            let iconSide = min(cellWidth * 0.62, cellHeight * 0.68, 132)
 
             VStack(spacing: vSpacing) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
@@ -179,14 +179,14 @@ private struct VerticalAppsGrid: View {
     let columns: Int
     let interactive: Bool
 
-    private let hSpacing: CGFloat = 14
+    private let hSpacing: CGFloat = 18
     private let vSpacing: CGFloat = 18
     private let separatorRowHeight: CGFloat = 20
 
     var body: some View {
         GeometryReader { geo in
             let cellWidth = max(1, (geo.size.width - CGFloat(columns - 1) * hSpacing) / CGFloat(columns))
-            let iconSide = min(cellWidth * 0.45, 96)
+            let iconSide = min(cellWidth * 0.58, 108)
             let cellHeight = iconSide + 34
             let contentHeight = CGFloat(rows.count) * cellHeight
                 + CGFloat(max(0, rows.count - 1)) * vSpacing
