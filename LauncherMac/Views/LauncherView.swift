@@ -146,9 +146,25 @@ struct LauncherView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                CapsuleSearchBar(text: $store.searchText, isFocused: $searchFocused, onSubmit: launchFirstItem)
-                    .frame(maxWidth: 440)
-                    .padding(.top, 36)
+                ZStack {
+                    CapsuleSearchBar(text: $store.searchText, isFocused: $searchFocused, onSubmit: launchFirstItem)
+                        .frame(maxWidth: 440)
+
+                    HStack(spacing: 14) {
+                        Spacer()
+                        if showsPageDots {
+                            PageDots(
+                                count: pageCount,
+                                current: min(max(store.currentPage, 0), pageCount - 1),
+                                onSelect: { store.currentPage = $0 }
+                            )
+                        }
+                        menuButton
+                    }
+                }
+                .frame(height: 38)
+                .padding(.top, 36)
+                .padding(.horizontal, 36)
 
                 if store.isEditingFavorites {
                     FavoritesHint {
@@ -172,79 +188,45 @@ struct LauncherView: View {
                     EmptyState(isSearching: store.isSearching, category: nil)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-
-                launchpadFooter
             }
             .padding(.bottom, 8)
         }
-    }
-
-    private var launchpadFooter: some View {
-        ZStack {
-            if showsPageDots {
-                PageDots(
-                    count: pageCount,
-                    current: min(max(store.currentPage, 0), pageCount - 1),
-                    onSelect: { store.currentPage = $0 }
-                )
-            }
-
-            HStack(spacing: 4) {
-                FooterButton(
-                    systemName: store.isEditingFavorites ? "heart.fill" : "heart",
-                    color: store.isEditingFavorites ? .pink : .white,
-                    isActive: store.isEditingFavorites,
-                    help: "Edit Favorites"
-                ) {
-                    store.isEditingFavorites.toggle()
-                }
-
-                FooterButton(
-                    systemName: "gearshape.fill",
-                    color: .white,
-                    isActive: false,
-                    help: "Settings",
-                    action: showSettings
-                )
-
-                Spacer()
-            }
-            .padding(.horizontal, 36)
-        }
-        .frame(height: 34)
-        .padding(.bottom, 22)
     }
 
     private var header: some View {
         HStack(spacing: 16) {
             SearchBar(text: $store.searchText, isFocused: $searchFocused, onSubmit: launchFirstItem)
 
-            Menu {
-                Button(store.isEditingFavorites ? "Done Editing Favorites" : "Edit Favorites") {
-                    store.isEditingFavorites.toggle()
-                }
-                Divider()
-                Button("Refresh Apps") { store.reloadApps() }
-                Button("Reset Layout") {
-                    store.resetLayout()
-                    controller.resetWindowSize()
-                }
-                Divider()
-                Button("Settings…") { showSettings() }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .frame(width: 34, height: 34)
-                    .background(Circle().fill(Color.white.opacity(0.09)))
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
-                    .contentShape(Circle())
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .help("More")
+            menuButton
         }
+    }
+
+    private var menuButton: some View {
+        Menu {
+            Button(store.isEditingFavorites ? "Done Editing Favorites" : "Edit Favorites") {
+                store.isEditingFavorites.toggle()
+            }
+            Divider()
+            Button("Refresh Apps") { store.reloadApps() }
+            Button("Reset Layout") {
+                store.resetLayout()
+                controller.resetWindowSize()
+            }
+            Divider()
+            Button("Settings…") { showSettings() }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(Color.white.opacity(0.09)))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+                .contentShape(Circle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("More")
     }
 
     private func showSettings() {
@@ -308,32 +290,6 @@ private struct FavoritesHint: View {
     }
 }
 
-
-private struct FooterButton: View {
-    let systemName: String
-    let color: Color
-    let isActive: Bool
-    let help: String
-    let action: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(color.opacity(isActive || isHovering ? 0.95 : 0.45))
-                .frame(width: 30, height: 30)
-                .background(
-                    Circle().fill(Color.white.opacity(isActive || isHovering ? 0.14 : 0))
-                )
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovering = $0 }
-        .help(help)
-    }
-}
 
 private struct EmptyState: View {
     let isSearching: Bool
