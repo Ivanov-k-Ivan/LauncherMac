@@ -2,6 +2,150 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+private let gapTolerance: CGFloat = 10
+
+private struct DropSlot {
+    let targetID: String
+    let placeAfter: Bool
+    let neighborID: String?
+}
+
+@MainActor
+private final class GridDragState: ObservableObject {
+    @Published private(set) var source: RootItem?
+    @Published private(set) var targetID: String?
+    @Published private(set) var placeAfter = false
+    @Published private(set) var isInsertion = false
+
+    var frames: [String: CGRect] = [:]
+
+    func begin(item: RootItem) {
+        source = item
+        clearTarget()
+    }
+
+    func update(location: CGPoint) {
+        guard let source else { return }
+
+        if let slot = gapSlot(at: location) {
+            if isNoOp(slot, sourceID: source.id) {
+                clearTarget()
+            } else {
+                setTarget(slot.targetID, placeAfter: slot.placeAfter, insertion: true)
+            }
+            return
+        }
+
+        if let (id, _) = frame(at: location), id != source.id {
+            setTarget(id, placeAfter: false, insertion: false)
+        } else {
+            clearTarget()
+        }
+    }
+
+    func finish(at location: CGPoint, store: LauncherStore) {
+        guard let source else { return }
+
+        let slot = gapSlot(at: location)
+        let iconID = slot == nil ? frame(at: location)?.0 : nil
+        reset()
+
+        if let slot, !isNoOp(slot, sourceID: source.id),
+           let target = rootItem(for: slot.targetID, store: store) {
+            store.moveRootItem(movedSource(source), relativeTo: target, placeAfter: slot.placeAfter)
+        } else if let iconID, iconID != source.id, case .app(let appID) = source,
+                  let target = rootItem(for: iconID, store: store) {
+            store.dropApp(appID, onto: target)
+        }
+    }
+
+    func cancel() {
+        reset()
+    }
+
+    private func setTarget(_ id: String, placeAfter: Bool, insertion: Bool) {
+        if targetID != id { targetID = id }
+        if self.placeAfter != placeAfter { self.placeAfter = placeAfter }
+        if isInsertion != insertion { isInsertion = insertion }
+    }
+
+    private func clearTarget() {
+        if targetID != nil { targetID = nil }
+        if placeAfter { placeAfter = false }
+        if isInsertion { isInsertion = false }
+    }
+
+    private func reset() {
+        source = nil
+        clearTarget()
+    }
+
+    private func frame(at location: CGPoint) -> (String, CGRect)? {
+        frames.first { $0.value.contains(location) }.map { ($0.key, $0.value) }
+    }
+
+    private func gapSlot(at location: CGPoint) -> DropSlot? {
+        let candidates = frames.filter {
+            location.y >= $0.value.minY - 2 && location.y <= $0.value.maxY + 2
+                && $0.value.maxX >= location.x - 160 && $0.value.minX <= location.x + 160
+        }
+        let row = candidates.sorted { $0.value.minX < $1.value.minX }
+        guard !row.isEmpty else { return nil }
+
+        if let first = row.first, location.x < first.value.minX {
+            return DropSlot(targetID: first.key, placeAfter: false, neighborID: nil)
+        }
+
+        if let last = row.last, location.x > last.value.maxX {
+            return DropSlot(targetID: last.key, placeAfter: true, neighborID: nil)
+        }
+
+        for index in 1 ..< row.count {
+            let left = row[index - 1]
+            let right = row[index]
+            if location.x >= left.value.maxX - gapTolerance,
+               location.x <= right.value.minX + gapTolerance {
+                return DropSlot(targetID: right.key, placeAfter: false, neighborID: left.key)
+            }
+        }
+        return nil
+    }
+
+    private func isNoOp(_ slot: DropSlot, sourceID: String) -> Bool {
+        slot.targetID == sourceID || slot.neighborID == sourceID
+    }
+
+    private func movedSource(_ item: RootItem) -> DragPayload.Moved {
+        switch item {
+        case .app(let appID): return .app(appID)
+        case .folder(let folder): return .folder(folder.id)
+        }
+    }
+
+    private func rootItem(for id: String, store: LauncherStore) -> RootItem? {
+        if id.hasPrefix("app:") {
+            return .app(String(id.dropFirst("app:".count)))
+        }
+        if id.hasPrefix("folder:"), let folderID = UUID(uuidString: String(id.dropFirst("folder:".count))) {
+            return store.folder(id: folderID).map { .folder($0) }
+        }
+        return nil
+    }
+}
+
+@MainActor
+private final class DragGhostState: ObservableObject {
+    @Published var location: CGPoint?
+}
+
+private struct CellFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
 private enum GridRow {
     case cells([RootItem])
     case separator
@@ -16,6 +160,8 @@ struct AppsGrid: View {
     var fadeEdges = false
 
     @AppStorage("scrollMode") private var scrollMode = ScrollMode.vertical.rawValue
+    @StateObject private var dragState = GridDragState()
+    @StateObject private var ghost = DragGhostState()
 
     private var favoriteItems: [RootItem] {
         store.isSearching ? [] : store.favoriteApps.map { .app($0.id) }
@@ -32,24 +178,43 @@ struct AppsGrid: View {
     }
 
     var body: some View {
-        if scrollMode == ScrollMode.pages.rawValue {
-            PagedAppsGrid(
-                rows: rowsToShow,
-                store: store,
-                controller: controller,
-                columns: columns,
-                rowsPerPage: rows,
-                interactive: interactive
-            )
-        } else {
-            VerticalAppsGrid(
-                rows: rowsToShow,
-                store: store,
-                controller: controller,
-                columns: columns,
-                interactive: interactive,
-                fadeEdges: fadeEdges
-            )
+        Group {
+            if scrollMode == ScrollMode.pages.rawValue {
+                PagedAppsGrid(
+                    rows: rowsToShow,
+                    store: store,
+                    controller: controller,
+                    columns: columns,
+                    rowsPerPage: rows,
+                    interactive: interactive,
+                    dragState: dragState,
+                    ghost: ghost
+                )
+            } else {
+                VerticalAppsGrid(
+                    rows: rowsToShow,
+                    store: store,
+                    controller: controller,
+                    columns: columns,
+                    interactive: interactive,
+                    fadeEdges: fadeEdges,
+                    dragState: dragState,
+                    ghost: ghost
+                )
+            }
+        }
+        .onPreferenceChange(CellFramePreferenceKey.self) { frames in
+            dragState.frames = frames
+        }
+        .overlay {
+            if let item = dragState.source, let location = ghost.location {
+                GeometryReader { geo in
+                    let origin = geo.frame(in: .global).origin
+                    DragPreview(item: item, store: store)
+                        .position(x: location.x - origin.x, y: location.y - origin.y)
+                }
+                .allowsHitTesting(false)
+            }
         }
     }
 }
@@ -61,6 +226,8 @@ private struct PagedAppsGrid: View {
     let columns: Int
     let rowsPerPage: Int
     let interactive: Bool
+    @ObservedObject var dragState: GridDragState
+    let ghost: DragGhostState
 
     private let hSpacing: CGFloat = 16
     private let vSpacing: CGFloat = 14
@@ -84,7 +251,9 @@ private struct PagedAppsGrid: View {
                             columns: columns,
                             hSpacing: hSpacing,
                             vSpacing: vSpacing,
-                            interactive: interactive
+                            interactive: interactive,
+                            dragState: dragState,
+                            ghost: ghost
                         )
                         .frame(width: geo.size.width, height: geo.size.height)
                         .id(index)
@@ -122,6 +291,8 @@ private struct PagedRowsPage: View {
     let hSpacing: CGFloat
     let vSpacing: CGFloat
     let interactive: Bool
+    @ObservedObject var dragState: GridDragState
+    let ghost: DragGhostState
 
     private let separatorRowHeight: CGFloat = 14
 
@@ -154,7 +325,9 @@ private struct PagedRowsPage: View {
                                         controller: controller,
                                         iconSide: iconSide,
                                         cellWidth: cellWidth,
-                                        interactive: interactive
+                                        interactive: interactive,
+                                        dragState: dragState,
+                                        ghost: ghost
                                     )
                                     .frame(width: cellWidth, height: cellHeight)
                                 } else {
@@ -185,6 +358,8 @@ private struct VerticalAppsGrid: View {
     let columns: Int
     let interactive: Bool
     let fadeEdges: Bool
+    @ObservedObject var dragState: GridDragState
+    let ghost: DragGhostState
 
     private let hSpacing: CGFloat = 18
     private let vSpacing: CGFloat = 18
@@ -214,7 +389,9 @@ private struct VerticalAppsGrid: View {
                                             controller: controller,
                                             iconSide: iconSide,
                                             cellWidth: cellWidth,
-                                            interactive: interactive
+                                            interactive: interactive,
+                                            dragState: dragState,
+                                            ghost: ghost
                                         )
                                         .frame(width: cellWidth, height: cellHeight)
                                     } else {
@@ -263,6 +440,8 @@ private struct ItemCell: View {
     let iconSide: CGFloat
     let cellWidth: CGFloat
     let interactive: Bool
+    @ObservedObject var dragState: GridDragState
+    let ghost: DragGhostState
 
     @State private var isHovering = false
     @State private var isTargeted = false
@@ -285,6 +464,22 @@ private struct ItemCell: View {
     private var isFavorite: Bool {
         guard let appID else { return false }
         return store.isFavorite(appID)
+    }
+
+    private var isCustomTarget: Bool {
+        dragState.source?.id != item.id && dragState.targetID == item.id
+    }
+
+    private var isInsertionTarget: Bool {
+        isCustomTarget && dragState.isInsertion
+    }
+
+    private var isIconTarget: Bool {
+        isCustomTarget && !dragState.isInsertion
+    }
+
+    private var isDropTarget: Bool {
+        isTargeted || isIconTarget
     }
 
     var body: some View {
@@ -313,28 +508,47 @@ private struct ItemCell: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white.opacity(isHovering || isTargeted ? 0.08 : 0))
+                .fill(Color.white.opacity(isHovering || isDropTarget ? 0.08 : 0))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.accentColor.opacity(isTargeted ? 0.95 : 0), lineWidth: 2)
+                .strokeBorder(Color.accentColor.opacity(isDropTarget ? 0.95 : 0), lineWidth: 2)
         )
-        .scaleEffect(isTargeted ? 1.04 : 1)
+        .overlay(alignment: dragState.placeAfter ? .trailing : .leading) {
+            if isInsertionTarget {
+                Capsule()
+                    .fill(Color.accentColor)
+                    .frame(width: 4)
+                    .padding(.vertical, 10)
+                    .offset(x: dragState.placeAfter ? 7 : -7)
+                    .shadow(color: Color.accentColor.opacity(0.85), radius: 5)
+                    .allowsHitTesting(false)
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: dragState.placeAfter)
+        .scaleEffect(isDropTarget ? 1.04 : 1)
         .animation(.easeOut(duration: 0.14), value: isHovering)
-        .animation(.easeOut(duration: 0.14), value: isTargeted)
+        .animation(.easeOut(duration: 0.14), value: isDropTarget)
         .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .onHover { isHovering = $0 }
         .onTapGesture(perform: activate)
-        .modifier(AppDrag(item: item))
+        .simultaneousGesture(dragGesture)
         .onDrop(
             of: [.plainText],
             delegate: ItemDropDelegate(
                 item: item,
                 store: store,
                 enabled: interactive,
-                cellWidth: cellWidth,
                 isTargeted: $isTargeted
             )
+        )
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: CellFramePreferenceKey.self,
+                    value: [item.id: geo.frame(in: .global)]
+                )
+            }
         )
         .contextMenu {
             if let appID, let app = store.app(for: appID) {
@@ -346,6 +560,29 @@ private struct ItemCell: View {
                 Button("Open Folder") { store.openFolderID = folder.id }
             }
         }
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
+            .onChanged { value in
+                guard interactive else { return }
+                if dragState.source == nil {
+                    dragState.begin(item: item)
+                }
+                guard dragState.source?.id == item.id else { return }
+                ghost.location = value.location
+                dragState.update(location: value.location)
+            }
+            .onEnded { value in
+                guard interactive else {
+                    ghost.location = nil
+                    dragState.cancel()
+                    return
+                }
+                guard dragState.source?.id == item.id else { return }
+                ghost.location = nil
+                dragState.finish(at: value.location, store: store)
+            }
     }
 
     @ViewBuilder
@@ -419,35 +656,28 @@ struct FolderIconView: View {
     }
 }
 
-private struct AppDrag: ViewModifier {
+private struct DragPreview: View {
     let item: RootItem
+    @ObservedObject var store: LauncherStore
 
-    @State private var isMoveDrag = false
-
-    func body(content: Content) -> some View {
-        content
-            .onLongPressGesture(minimumDuration: 0.35, maximumDistance: 14) {
-                isMoveDrag = true
-            } onPressingChanged: { pressing in
-                if !pressing {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                        isMoveDrag = false
-                    }
-                }
+    var body: some View {
+        Group {
+            if case .app(let appID) = item, let app = store.app(for: appID) {
+                Image(nsImage: app.icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else if case .folder(let folder) = item {
+                FolderIconView(folder: folder, store: store)
+            } else {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.12))
             }
-            .onDrag {
-                let payload: String
-                switch item {
-                case .app(let appID):
-                    payload = isMoveDrag ? DragPayload.movedApp(appID) : DragPayload.app(appID)
-                case .folder(let folder):
-                    payload = isMoveDrag ? DragPayload.movedFolder(folder.id) : DragPayload.folder(folder.id)
-                }
-                if isMoveDrag {
-                    DispatchQueue.main.async { isMoveDrag = false }
-                }
-                return NSItemProvider(object: payload as NSString)
-            }
+        }
+        .frame(width: 72, height: 72)
+        .scaleEffect(1.08)
+        .shadow(color: .black.opacity(0.35), radius: 10, y: 5)
+        .opacity(0.92)
+        .allowsHitTesting(false)
     }
 }
 
@@ -455,7 +685,6 @@ private struct ItemDropDelegate: DropDelegate {
     let item: RootItem
     let store: LauncherStore
     let enabled: Bool
-    let cellWidth: CGFloat
     @Binding var isTargeted: Bool
 
     func validateDrop(info: DropInfo) -> Bool {
@@ -474,15 +703,11 @@ private struct ItemDropDelegate: DropDelegate {
         isTargeted = false
         guard enabled, let provider = info.itemProviders(for: [.plainText]).first else { return false }
 
-        let placeAfter = info.location.x > cellWidth / 2
         provider.loadObject(ofClass: NSString.self) { object, _ in
-            guard let payload = object as? String else { return }
+            guard let payload = object as? String,
+                  let appID = DragPayload.appID(from: payload) else { return }
             DispatchQueue.main.async {
-                if let moved = DragPayload.movedItem(from: payload) {
-                    store.moveRootItem(moved, relativeTo: item, placeAfter: placeAfter)
-                } else if let appID = DragPayload.appID(from: payload) {
-                    store.dropApp(appID, onto: item)
-                }
+                store.dropApp(appID, onto: item)
             }
         }
         return true
