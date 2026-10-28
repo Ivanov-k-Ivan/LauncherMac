@@ -190,7 +190,7 @@ private struct VerticalAppsGrid: View {
     var body: some View {
         GeometryReader { geo in
             let cellWidth = max(1, (geo.size.width - CGFloat(columns - 1) * hSpacing) / CGFloat(columns))
-            let iconSide = min(cellWidth * 0.58, 108)
+            let iconSide = min(cellWidth * 0.77, 108)
             let cellHeight = iconSide + 34
             let contentHeight = CGFloat(rows.count) * cellHeight
                 + CGFloat(max(0, rows.count - 1)) * vSpacing
