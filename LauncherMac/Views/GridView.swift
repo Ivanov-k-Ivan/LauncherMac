@@ -144,18 +144,22 @@ private struct PagedRowsPage: View {
                     switch row {
                     case .cells(let items):
                         HStack(spacing: hSpacing) {
-                            ForEach(items) { item in
-                                ItemCell(
-                                    item: item,
-                                    store: store,
-                                    controller: controller,
-                                    iconSide: iconSide,
-                                    cellWidth: cellWidth,
-                                    interactive: interactive
-                                )
-                                .frame(width: cellWidth, height: cellHeight)
+                            ForEach(0 ..< columns, id: \.self) { index in
+                                if index < items.count {
+                                    ItemCell(
+                                        item: items[index],
+                                        store: store,
+                                        controller: controller,
+                                        iconSide: iconSide,
+                                        cellWidth: cellWidth,
+                                        interactive: interactive
+                                    )
+                                    .frame(width: cellWidth, height: cellHeight)
+                                } else {
+                                    Color.clear
+                                        .frame(width: cellWidth, height: cellHeight)
+                                }
                             }
-                            Spacer(minLength: 0)
                         }
 
                     case .separator:
@@ -199,18 +203,22 @@ private struct VerticalAppsGrid: View {
                         switch row {
                         case .cells(let items):
                             HStack(spacing: hSpacing) {
-                                ForEach(items) { item in
-                                    ItemCell(
-                                        item: item,
-                                        store: store,
-                                        controller: controller,
-                                        iconSide: iconSide,
-                                        cellWidth: cellWidth,
-                                        interactive: interactive
-                                    )
-                                    .frame(width: cellWidth, height: cellHeight)
+                                ForEach(0 ..< columns, id: \.self) { index in
+                                    if index < items.count {
+                                        ItemCell(
+                                            item: items[index],
+                                            store: store,
+                                            controller: controller,
+                                            iconSide: iconSide,
+                                            cellWidth: cellWidth,
+                                            interactive: interactive
+                                        )
+                                        .frame(width: cellWidth, height: cellHeight)
+                                    } else {
+                                        Color.clear
+                                            .frame(width: cellWidth, height: cellHeight)
+                                    }
                                 }
-                                Spacer(minLength: 0)
                             }
 
                         case .separator:
