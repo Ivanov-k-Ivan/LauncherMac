@@ -79,7 +79,7 @@ private final class GridDragState: ObservableObject {
         } else {
             x = icon.minX - 12
         }
-        return CGPoint(x: x, y: icon.midY)
+        return CGPoint(x: x, y: icon.midY + 10)
     }
 
     func insertionHeight() -> CGFloat {
