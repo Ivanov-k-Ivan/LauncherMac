@@ -257,11 +257,9 @@ struct AppsGrid: View {
             GeometryReader { geo in
                 let origin = geo.frame(in: .global).origin
                 ZStack {
-                    if dragState.insertionPoint() == nil,
-                       let item = dragState.source,
-                       let location = ghost.location {
+                    if let item = dragState.source, let location = ghost.location {
                         DragPreview(item: item, store: store)
-                            .position(x: location.x - origin.x, y: location.y - origin.y)
+                            .position(x: location.x - origin.x + 56, y: location.y - origin.y + 20)
                     }
 
                     if let point = dragState.insertionPoint() {

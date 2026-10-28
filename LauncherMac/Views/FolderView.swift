@@ -305,8 +305,7 @@ struct FolderView: View {
                 GeometryReader { geo in
                     let origin = geo.frame(in: .global).origin
                     ZStack {
-                        if drag.insertionPoint() == nil,
-                           let appID = drag.appID,
+                        if let appID = drag.appID,
                            let app = store.app(for: appID),
                            let location = drag.location {
                             Image(nsImage: app.icon)
@@ -315,7 +314,7 @@ struct FolderView: View {
                                 .frame(width: 72, height: 72)
                                 .shadow(color: .black.opacity(0.35), radius: 10, y: 5)
                                 .opacity(0.92)
-                                .position(x: location.x - origin.x, y: location.y - origin.y)
+                                .position(x: location.x - origin.x + 56, y: location.y - origin.y + 20)
                         }
 
                         if let point = drag.insertionPoint() {
