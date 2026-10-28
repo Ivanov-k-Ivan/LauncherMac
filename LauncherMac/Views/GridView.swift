@@ -1,8 +1,5 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
-
-private let gapTolerance: CGFloat = 10
 
 private struct DropSlot {
     let targetID: String
@@ -18,6 +15,7 @@ private final class GridDragState: ObservableObject {
     @Published private(set) var isInsertion = false
 
     var frames: [String: CGRect] = [:]
+    var iconFrames: [String: CGRect] = [:]
 
     func begin(item: RootItem) {
         source = item
@@ -63,6 +61,38 @@ private final class GridDragState: ObservableObject {
         reset()
     }
 
+    func insertionPoint() -> CGPoint? {
+        guard isInsertion,
+              let targetID,
+              let icon = iconFrames[targetID] ?? frames[targetID] else { return nil }
+
+        let x: CGFloat
+        if placeAfter {
+            x = icon.maxX + 12
+        } else if let leftIcon = leftIcon(before: icon) {
+            x = (leftIcon.maxX + icon.minX) / 2
+        } else {
+            x = icon.minX - 12
+        }
+        return CGPoint(x: x, y: icon.midY)
+    }
+
+    func insertionHeight() -> CGFloat {
+        guard let targetID,
+              let icon = iconFrames[targetID] ?? frames[targetID] else { return 60 }
+        return icon.height + 12
+    }
+
+    private func leftIcon(before icon: CGRect) -> CGRect? {
+        iconFrames.values
+            .filter {
+                abs($0.midY - icon.midY) < 1
+                    && $0.maxX <= icon.minX
+                    && icon.minX - $0.maxX < 200
+            }
+            .max { $0.maxX < $1.maxX }
+    }
+
     private func setTarget(_ id: String, placeAfter: Bool, insertion: Bool) {
         if targetID != id { targetID = id }
         if self.placeAfter != placeAfter { self.placeAfter = placeAfter }
@@ -85,37 +115,43 @@ private final class GridDragState: ObservableObject {
     }
 
     private func gapSlot(at location: CGPoint) -> DropSlot? {
-        let candidates = frames.filter {
-            location.y >= $0.value.minY - 2 && location.y <= $0.value.maxY + 2
-                && $0.value.maxX >= location.x - 160 && $0.value.minX <= location.x + 160
-        }
-        let row = candidates.sorted { $0.value.minX < $1.value.minX }
+        let row = frames
+            .filter { location.y >= $0.value.minY - 2 && location.y <= $0.value.maxY + 2 }
+            .sorted { iconFrame(for: $0.key, fallback: $0.value).midX < iconFrame(for: $1.key, fallback: $1.value).midX }
         guard !row.isEmpty else { return nil }
 
-        if let first = row.first, location.x < first.value.minX {
-            return DropSlot(targetID: first.key, placeAfter: false, neighborID: nil)
+        let firstIcon = iconFrame(for: row[0].key, fallback: row[0].value)
+        if location.x < firstIcon.minX {
+            return DropSlot(targetID: row[0].key, placeAfter: false, neighborID: nil)
         }
 
-        if let last = row.last, location.x > last.value.maxX {
+        let last = row[row.count - 1]
+        let lastIcon = iconFrame(for: last.key, fallback: last.value)
+        if location.x > lastIcon.maxX {
             return DropSlot(targetID: last.key, placeAfter: true, neighborID: nil)
         }
 
         for index in 1 ..< row.count {
             let left = row[index - 1]
             let right = row[index]
-            if location.x >= left.value.maxX - gapTolerance,
-               location.x <= right.value.minX + gapTolerance {
+            let leftIcon = iconFrame(for: left.key, fallback: left.value)
+            let rightIcon = iconFrame(for: right.key, fallback: right.value)
+            if location.x >= leftIcon.maxX, location.x <= rightIcon.minX {
                 return DropSlot(targetID: right.key, placeAfter: false, neighborID: left.key)
             }
         }
         return nil
     }
 
+    private func iconFrame(for id: String, fallback: CGRect) -> CGRect {
+        iconFrames[id] ?? fallback
+    }
+
     private func isNoOp(_ slot: DropSlot, sourceID: String) -> Bool {
         slot.targetID == sourceID || slot.neighborID == sourceID
     }
 
-    private func movedSource(_ item: RootItem) -> DragPayload.Moved {
+    private func movedSource(_ item: RootItem) -> MovedItem {
         switch item {
         case .app(let appID): return .app(appID)
         case .folder(let folder): return .folder(folder.id)
@@ -139,6 +175,14 @@ private final class DragGhostState: ObservableObject {
 }
 
 private struct CellFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
+private struct IconFramePreferenceKey: PreferenceKey {
     static var defaultValue: [String: CGRect] = [:]
 
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
@@ -206,15 +250,29 @@ struct AppsGrid: View {
         .onPreferenceChange(CellFramePreferenceKey.self) { frames in
             dragState.frames = frames
         }
+        .onPreferenceChange(IconFramePreferenceKey.self) { frames in
+            dragState.iconFrames = frames
+        }
         .overlay {
-            if let item = dragState.source, let location = ghost.location {
-                GeometryReader { geo in
-                    let origin = geo.frame(in: .global).origin
-                    DragPreview(item: item, store: store)
-                        .position(x: location.x - origin.x, y: location.y - origin.y)
+            GeometryReader { geo in
+                let origin = geo.frame(in: .global).origin
+                ZStack {
+                    if let item = dragState.source, let location = ghost.location {
+                        DragPreview(item: item, store: store)
+                            .position(x: location.x - origin.x, y: location.y - origin.y)
+                    }
+
+                    if let point = dragState.insertionPoint() {
+                        Capsule()
+                            .fill(Color.accentColor)
+                            .frame(width: 4, height: dragState.insertionHeight())
+                            .shadow(color: Color.accentColor.opacity(0.85), radius: 5)
+                            .position(x: point.x - origin.x, y: point.y - origin.y)
+                    }
                 }
-                .allowsHitTesting(false)
+                .frame(width: geo.size.width, height: geo.size.height)
             }
+            .allowsHitTesting(false)
         }
     }
 }
@@ -444,7 +502,6 @@ private struct ItemCell: View {
     let ghost: DragGhostState
 
     @State private var isHovering = false
-    @State private var isTargeted = false
 
     private var appID: String? {
         if case .app(let id) = item { return id }
@@ -470,22 +527,26 @@ private struct ItemCell: View {
         dragState.source?.id != item.id && dragState.targetID == item.id
     }
 
-    private var isInsertionTarget: Bool {
-        isCustomTarget && dragState.isInsertion
-    }
-
     private var isIconTarget: Bool {
         isCustomTarget && !dragState.isInsertion
     }
 
     private var isDropTarget: Bool {
-        isTargeted || isIconTarget
+        isIconTarget
     }
 
     var body: some View {
         VStack(spacing: 9) {
             icon
                 .frame(width: iconSide, height: iconSide)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: IconFramePreferenceKey.self,
+                            value: [item.id: geo.frame(in: .global)]
+                        )
+                    }
+                )
                 .overlay(alignment: .topTrailing) {
                     if store.isEditingFavorites, appID != nil {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
@@ -514,18 +575,6 @@ private struct ItemCell: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Color.accentColor.opacity(isDropTarget ? 0.95 : 0), lineWidth: 2)
         )
-        .overlay(alignment: dragState.placeAfter ? .trailing : .leading) {
-            if isInsertionTarget {
-                Capsule()
-                    .fill(Color.accentColor)
-                    .frame(width: 4)
-                    .padding(.vertical, 10)
-                    .offset(x: dragState.placeAfter ? 7 : -7)
-                    .shadow(color: Color.accentColor.opacity(0.85), radius: 5)
-                    .allowsHitTesting(false)
-            }
-        }
-        .animation(.easeOut(duration: 0.12), value: dragState.placeAfter)
         .scaleEffect(isDropTarget ? 1.04 : 1)
         .animation(.easeOut(duration: 0.14), value: isHovering)
         .animation(.easeOut(duration: 0.14), value: isDropTarget)
@@ -533,15 +582,6 @@ private struct ItemCell: View {
         .onHover { isHovering = $0 }
         .onTapGesture(perform: activate)
         .simultaneousGesture(dragGesture)
-        .onDrop(
-            of: [.plainText],
-            delegate: ItemDropDelegate(
-                item: item,
-                store: store,
-                enabled: interactive,
-                isTargeted: $isTargeted
-            )
-        )
         .background(
             GeometryReader { geo in
                 Color.clear.preference(
@@ -678,38 +718,5 @@ private struct DragPreview: View {
         .shadow(color: .black.opacity(0.35), radius: 10, y: 5)
         .opacity(0.92)
         .allowsHitTesting(false)
-    }
-}
-
-private struct ItemDropDelegate: DropDelegate {
-    let item: RootItem
-    let store: LauncherStore
-    let enabled: Bool
-    @Binding var isTargeted: Bool
-
-    func validateDrop(info: DropInfo) -> Bool {
-        enabled
-    }
-
-    func dropEntered(info: DropInfo) {
-        isTargeted = true
-    }
-
-    func dropExited(info: DropInfo) {
-        isTargeted = false
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        isTargeted = false
-        guard enabled, let provider = info.itemProviders(for: [.plainText]).first else { return false }
-
-        provider.loadObject(ofClass: NSString.self) { object, _ in
-            guard let payload = object as? String,
-                  let appID = DragPayload.appID(from: payload) else { return }
-            DispatchQueue.main.async {
-                store.dropApp(appID, onto: item)
-            }
-        }
-        return true
     }
 }

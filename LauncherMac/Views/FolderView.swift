@@ -1,6 +1,185 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
+
+@MainActor
+private final class FolderDragState: ObservableObject {
+    @Published private(set) var appID: String?
+    @Published private(set) var targetID: String?
+    @Published private(set) var placeAfter = false
+    @Published var location: CGPoint?
+
+    var frames: [String: CGRect] = [:]
+    var iconFrames: [String: CGRect] = [:]
+    var panelFrame: CGRect = .zero
+    var isInGap = false
+
+    func begin(appID: String, location: CGPoint) {
+        self.appID = appID
+        self.location = location
+    }
+
+    func update(location: CGPoint) {
+        self.location = location
+        guard let appID else { return }
+
+        if let slot = gapSlot(at: location) {
+            isInGap = true
+            if isNoOp(slot, sourceID: appID) {
+                clearTarget()
+            } else {
+                if targetID != slot.targetID { targetID = slot.targetID }
+                if placeAfter != slot.placeAfter { placeAfter = slot.placeAfter }
+            }
+        } else {
+            isInGap = false
+            clearTarget()
+        }
+    }
+
+    func finish(store: LauncherStore, folderID: UUID) {
+        guard let appID else { return }
+
+        let gapTarget = targetID
+        let gapAfter = placeAfter
+        let inGap = isInGap
+        let inside = gapTarget != nil || (location.map { panelFrame.contains($0) } ?? false)
+        let iconTarget = gapTarget == nil && !inGap ? target(at: location, excluding: appID) : nil
+        reset()
+
+        if let gapTarget {
+            store.reorderFolderApp(appID, in: folderID, relativeTo: gapTarget, placeAfter: gapAfter)
+        } else if inGap {
+            return
+        } else if inside {
+            store.reorderFolderApp(appID, in: folderID, relativeTo: iconTarget?.id, placeAfter: iconTarget?.after ?? false)
+        } else {
+            store.moveOutOfFolder(appID: appID, folderID: folderID)
+        }
+    }
+
+    func cancel() {
+        reset()
+    }
+
+    func insertionPoint() -> CGPoint? {
+        guard isInGap,
+              let targetID,
+              let icon = iconFrames[targetID] ?? frames[targetID] else { return nil }
+
+        let x: CGFloat
+        if placeAfter {
+            x = icon.maxX + 12
+        } else if let leftIcon = leftIcon(before: icon) {
+            x = (leftIcon.maxX + icon.minX) / 2
+        } else {
+            x = icon.minX - 12
+        }
+        return CGPoint(x: x, y: icon.midY)
+    }
+
+    func insertionHeight() -> CGFloat {
+        guard let targetID,
+              let icon = iconFrames[targetID] ?? frames[targetID] else { return 60 }
+        return icon.height + 12
+    }
+
+    private func leftIcon(before icon: CGRect) -> CGRect? {
+        iconFrames.values
+            .filter {
+                abs($0.midY - icon.midY) < 1
+                    && $0.maxX <= icon.minX
+                    && icon.minX - $0.maxX < 200
+            }
+            .max { $0.maxX < $1.maxX }
+    }
+
+    private func clearTarget() {
+        if targetID != nil { targetID = nil }
+        if placeAfter { placeAfter = false }
+    }
+
+    private func reset() {
+        appID = nil
+        clearTarget()
+        isInGap = false
+        location = nil
+    }
+
+    private func target(at location: CGPoint?, excluding sourceID: String) -> (id: String, after: Bool)? {
+        guard let location,
+              let (id, frame) = frames.first(where: { $0.value.contains(location) }),
+              id != sourceID else { return nil }
+        return (id, location.x > frame.midX)
+    }
+
+    private func gapSlot(at location: CGPoint) -> FolderDropSlot? {
+        let row = frames
+            .filter { location.y >= $0.value.minY - 2 && location.y <= $0.value.maxY + 2 }
+            .sorted { iconFrame(for: $0.key, fallback: $0.value).midX < iconFrame(for: $1.key, fallback: $1.value).midX }
+        guard !row.isEmpty else { return nil }
+
+        let firstIcon = iconFrame(for: row[0].key, fallback: row[0].value)
+        if location.x < firstIcon.minX {
+            return FolderDropSlot(targetID: row[0].key, placeAfter: false, neighborID: nil)
+        }
+
+        let last = row[row.count - 1]
+        let lastIcon = iconFrame(for: last.key, fallback: last.value)
+        if location.x > lastIcon.maxX {
+            return FolderDropSlot(targetID: last.key, placeAfter: true, neighborID: nil)
+        }
+
+        for index in 1 ..< row.count {
+            let left = row[index - 1]
+            let right = row[index]
+            let leftIcon = iconFrame(for: left.key, fallback: left.value)
+            let rightIcon = iconFrame(for: right.key, fallback: right.value)
+            if location.x >= leftIcon.maxX, location.x <= rightIcon.minX {
+                return FolderDropSlot(targetID: right.key, placeAfter: false, neighborID: left.key)
+            }
+        }
+        return nil
+    }
+
+    private func iconFrame(for id: String, fallback: CGRect) -> CGRect {
+        iconFrames[id] ?? fallback
+    }
+
+    private func isNoOp(_ slot: FolderDropSlot, sourceID: String) -> Bool {
+        slot.targetID == sourceID || slot.neighborID == sourceID
+    }
+}
+
+private struct FolderDropSlot {
+    let targetID: String
+    let placeAfter: Bool
+    let neighborID: String?
+}
+
+private struct FolderPanelFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+private struct FolderCellFramesKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
+private struct FolderIconFramesKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
 
 struct FolderView: View {
     let folder: LauncherFolder
@@ -8,8 +187,8 @@ struct FolderView: View {
     let controller: LauncherController
 
     @State private var name: String
-    @State private var isTargeted = false
     @State private var showDeleteConfirmation = false
+    @StateObject private var drag = FolderDragState()
     @FocusState private var nameFocused: Bool
 
     private let spacing: CGFloat = 18
@@ -43,17 +222,6 @@ struct FolderView: View {
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
                     .onTapGesture(perform: close)
-                    .onDrop(of: [.plainText], isTargeted: $isTargeted) { providers in
-                        guard let provider = providers.first else { return false }
-                        provider.loadObject(ofClass: NSString.self) { object, _ in
-                            guard let payload = object as? String,
-                                  let appID = DragPayload.appID(from: payload) else { return }
-                            DispatchQueue.main.async {
-                                store.moveOutOfFolder(appID: appID, folderID: folder.id)
-                            }
-                        }
-                        return true
-                    }
 
                 VStack(spacing: 14) {
                     TextField("Folder", text: $name)
@@ -84,7 +252,8 @@ struct FolderView: View {
                                     store: store,
                                     controller: controller,
                                     iconSide: iconSide,
-                                    folderID: folder.id
+                                    folderID: folder.id,
+                                    drag: drag
                                 )
                                 .frame(width: cellWidth, height: cellWidth + 6)
                             }
@@ -102,9 +271,17 @@ struct FolderView: View {
                     RoundedRectangle(cornerRadius: 30, style: .continuous)
                         .fill(.ultraThinMaterial)
                 )
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: FolderPanelFrameKey.self,
+                            value: geo.frame(in: .global)
+                        )
+                    }
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .strokeBorder(Color.white.opacity(isTargeted ? 0.55 : 0.15), lineWidth: 1)
+                        .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
                 )
                 .shadow(color: .black.opacity(0.45), radius: 34, y: 22)
                 .overlay(alignment: .topTrailing) {
@@ -124,7 +301,38 @@ struct FolderView: View {
                     .padding(14)
                 }
             }
+            .overlay {
+                GeometryReader { geo in
+                    let origin = geo.frame(in: .global).origin
+                    ZStack {
+                        if let appID = drag.appID,
+                           let app = store.app(for: appID),
+                           let location = drag.location {
+                            Image(nsImage: app.icon)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 72, height: 72)
+                                .shadow(color: .black.opacity(0.35), radius: 10, y: 5)
+                                .opacity(0.92)
+                                .position(x: location.x - origin.x, y: location.y - origin.y)
+                        }
+
+                        if let point = drag.insertionPoint() {
+                            Capsule()
+                                .fill(Color.accentColor)
+                                .frame(width: 4, height: drag.insertionHeight())
+                                .shadow(color: Color.accentColor.opacity(0.85), radius: 5)
+                                .position(x: point.x - origin.x, y: point.y - origin.y)
+                        }
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                }
+                .allowsHitTesting(false)
+            }
         }
+        .onPreferenceChange(FolderPanelFrameKey.self) { drag.panelFrame = $0 }
+        .onPreferenceChange(FolderCellFramesKey.self) { drag.frames = $0 }
+        .onPreferenceChange(FolderIconFramesKey.self) { drag.iconFrames = $0 }
         .alert("Delete Folder?", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
@@ -158,6 +366,7 @@ private struct FolderAppCell: View {
     let controller: LauncherController
     let iconSide: CGFloat
     let folderID: UUID
+    @ObservedObject var drag: FolderDragState
 
     @State private var isHovering = false
 
@@ -167,6 +376,14 @@ private struct FolderAppCell: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: iconSide, height: iconSide)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: FolderIconFramesKey.self,
+                            value: [app.id: geo.frame(in: .global)]
+                        )
+                    }
+                )
                 .shadow(color: .black.opacity(0.28), radius: 4, y: 2)
 
             Text(app.name)
@@ -179,16 +396,35 @@ private struct FolderAppCell: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(isHovering ? 0.09 : 0))
+                .fill(Color.white.opacity(isHovering || drag.targetID == app.id ? 0.09 : 0))
         )
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .onTapGesture {
             controller.launch(app)
         }
-        .onDrag {
-            NSItemProvider(object: DragPayload.app(app.id) as NSString)
-        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 4, coordinateSpace: .global)
+                .onChanged { value in
+                    if drag.appID == nil {
+                        drag.begin(appID: app.id, location: value.location)
+                    }
+                    guard drag.appID == app.id else { return }
+                    drag.update(location: value.location)
+                }
+                .onEnded { _ in
+                    guard drag.appID == app.id else { return }
+                    drag.finish(store: store, folderID: folderID)
+                }
+        )
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: FolderCellFramesKey.self,
+                    value: [app.id: geo.frame(in: .global)]
+                )
+            }
+        )
         .contextMenu {
             Button("Open") { controller.launch(app) }
             Button("Remove from Folder") { store.moveOutOfFolder(appID: app.id, folderID: folderID) }

@@ -129,20 +129,9 @@ enum ScrollMode: String {
     case vertical
 }
 
-enum DragPayload {
-    enum Moved: Hashable {
-        case app(String)
-        case folder(UUID)
-    }
-
-    static let appPrefix = "launcher-app://"
-
-    static func app(_ id: String) -> String { appPrefix + id }
-
-    static func appID(from payload: String) -> String? {
-        guard payload.hasPrefix(appPrefix) else { return nil }
-        return String(payload.dropFirst(appPrefix.count))
-    }
+enum MovedItem: Hashable {
+    case app(String)
+    case folder(UUID)
 }
 
 extension Array {

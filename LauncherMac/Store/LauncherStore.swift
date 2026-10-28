@@ -130,7 +130,7 @@ final class LauncherStore: ObservableObject {
     // MARK: - Layout mutations
 
     /// Moves a root app or folder next to another root item.
-    func moveRootItem(_ moved: DragPayload.Moved, relativeTo target: RootItem, placeAfter: Bool) {
+    func moveRootItem(_ moved: MovedItem, relativeTo target: RootItem, placeAfter: Bool) {
         let movedID: String
         switch moved {
         case .app(let appID): movedID = "app:" + appID
@@ -211,6 +211,30 @@ final class LauncherStore: ObservableObject {
         }) {
             items.append(.app(appID))
         }
+        save()
+    }
+
+    /// Reorders an app inside a folder, or appends it when `targetID` is nil.
+    func reorderFolderApp(_ appID: String, in folderID: UUID, relativeTo targetID: String?, placeAfter: Bool) {
+        guard appID != targetID,
+              let folderIndex = items.firstIndex(where: {
+                  if case .folder(let folder) = $0 { return folder.id == folderID }
+                  return false
+              }),
+              case .folder(var folder) = items[folderIndex],
+              let sourceIndex = folder.appIDs.firstIndex(of: appID) else { return }
+
+        folder.appIDs.remove(at: sourceIndex)
+
+        let insertion: Int
+        if let targetID, let targetIndex = folder.appIDs.firstIndex(of: targetID) {
+            insertion = min(max(0, placeAfter ? targetIndex + 1 : targetIndex), folder.appIDs.count)
+        } else {
+            insertion = folder.appIDs.count
+        }
+
+        folder.appIDs.insert(appID, at: insertion)
+        items[folderIndex] = .folder(folder)
         save()
     }
 
