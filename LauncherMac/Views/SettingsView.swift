@@ -51,6 +51,7 @@ struct SettingsView: View {
                 }
                 Button("Reset Layout") {
                     controller.store.resetLayout()
+                    controller.resetWindowSize()
                 }
             }
         }

@@ -13,6 +13,9 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
         case window
     }
 
+    static let defaultWindowSize = NSSize(width: 844, height: 596)
+    private static let windowAutosaveName = "LauncherWindow-v2"
+
     private var window: NSWindow?
     private var keyMonitor: Any?
     private var activationObserver: NSObjectProtocol?
@@ -151,7 +154,7 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
 
         case .window:
             let window = LauncherPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 844, height: 596),
+                contentRect: NSRect(origin: .zero, size: Self.defaultWindowSize),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -171,12 +174,27 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
             window.standardWindowButton(.closeButton)?.isHidden = true
             window.standardWindowButton(.miniaturizeButton)?.isHidden = true
             window.standardWindowButton(.zoomButton)?.isHidden = true
-            window.setFrameAutosaveName("LauncherWindow-v2")
-            if !window.setFrameUsingName("LauncherWindow-v2") {
+            window.setFrameAutosaveName(Self.windowAutosaveName)
+            if !window.setFrameUsingName(Self.windowAutosaveName) {
                 window.center()
             }
             return window
         }
+    }
+
+    func resetWindowSize() {
+        guard presentation == .window else { return }
+
+        guard let window, window.isVisible else {
+            UserDefaults.standard.removeObject(forKey: "NSWindow Frame \(Self.windowAutosaveName)")
+            return
+        }
+
+        var frame = window.frame
+        frame.size = Self.defaultWindowSize
+        window.setFrame(frame, display: true)
+        window.center()
+        window.saveFrame(usingName: Self.windowAutosaveName)
     }
 
     func windowDidResignKey(_ notification: Notification) {
