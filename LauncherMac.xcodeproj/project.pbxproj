@@ -271,6 +271,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Launcher;
 				INFOPLIST_KEY_CFBundleName = Launcher;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -302,6 +303,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Launcher;
 				INFOPLIST_KEY_CFBundleName = Launcher;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
