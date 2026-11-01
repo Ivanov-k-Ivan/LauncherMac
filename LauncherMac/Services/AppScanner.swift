@@ -19,7 +19,7 @@ enum AppScanner {
             guard let entries = try? FileManager.default.contentsOfDirectory(atPath: root) else { continue }
             for entry in entries where entry.hasSuffix(".app") {
                 let path = (root as NSString).appendingPathComponent(entry)
-                let url = URL(fileURLWithPath: path, isDirectory: true)
+                let url = URL(fileURLWithPath: path, isDirectory: true).resolvingSymlinksInPath()
                 let key = url.standardizedFileURL.path
                 guard seen.insert(key).inserted else { continue }
                 guard let values = try? url.resourceValues(forKeys: [.isHiddenKey, .isDirectoryKey]),
