@@ -85,9 +85,7 @@ final class LauncherStore: ObservableObject {
     var searchResults: [AppInfo] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return [] }
-        return items
-            .flatMap(\.appIDs)
-            .compactMap { appsByID[$0] }
+        return appsByID.values
             .filter { $0.name.localizedCaseInsensitiveContains(query) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
