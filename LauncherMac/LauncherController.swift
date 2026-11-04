@@ -21,6 +21,7 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
     private var keyMonitor: Any?
     private var activationObserver: NSObjectProtocol?
     private var hotKey: HotKey?
+    private var appWatcher: AppWatcher?
     private var hidSystemUI = false
 
     private override init() {
@@ -39,6 +40,18 @@ final class LauncherController: NSObject, ObservableObject, NSWindowDelegate {
 
     func setup() {
         refreshHotKey()
+        startAppWatcher()
+    }
+
+    private func startAppWatcher() {
+        guard appWatcher == nil else { return }
+        let watcher = AppWatcher()
+        watcher.start { [weak self] in
+            Task { @MainActor in
+                self?.store.reloadApps()
+            }
+        }
+        appWatcher = watcher
     }
 
     func refreshHotKey() {
