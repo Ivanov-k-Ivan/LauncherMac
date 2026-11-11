@@ -1,12 +1,19 @@
-# Launcher
+<p align="center">
+  <a href="https://buymeacoffee.com/mavasilisk">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="46">
+  </a>
+</p>
 
-**A fast, free replacement for macOS Launchpad.**
+<h1 align="center">Launcher</h1>
 
-Launcher shows every app on your Mac in a clean, keyboard-friendly grid. Search instantly, organise apps into folders, pin your favourites, and filter by category — all without leaving the keyboard.
+<p align="center"><strong>A fast, free replacement for macOS Launchpad.</strong></p>
 
-[![macOS 15+](https://img.shields.io/badge/macOS-15.0%2B-black?logo=apple)](#requirements)
-[![Built with SwiftUI](https://img.shields.io/badge/SwiftUI-Swift-orange?logo=swift)](LauncherMac)
-[![Buy Me a Coffee](https://img.shields.io/badge/-Buy%20me%20a%20coffee-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/mavasilisk)
+<p align="center">Launcher shows every app on your Mac in a clean, keyboard-friendly grid. Search instantly, organise apps into folders, pin your favourites, and filter by category — all without leaving the keyboard.</p>
+
+<p align="center">
+  <a href="#requirements"><img src="https://img.shields.io/badge/macOS-15.0%2B-black?logo=apple" alt="macOS 15+"></a>
+  <a href="LauncherMac"><img src="https://img.shields.io/badge/SwiftUI-Swift-orange?logo=swift" alt="Built with SwiftUI"></a>
+</p>
 
 ---
 
