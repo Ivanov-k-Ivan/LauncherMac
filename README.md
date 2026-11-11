@@ -17,6 +17,20 @@
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="assets/screenshots/window.png" alt="Launcher windowed view with category filters" width="820">
+  <br>
+  <sub>Windowed Spotlight-style launcher with category filters</sub>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/fullscreen.png" alt="Launcher full-screen Launchpad-style view" width="820">
+  <br>
+  <sub>Full-screen Launchpad-style view</sub>
+</p>
+
 ## Features
 
 - **Every app, one grid** — scans `/Applications`, `/System/Applications`, and `~/Applications` automatically, and picks up newly installed apps on its own.
