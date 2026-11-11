@@ -1,56 +1,142 @@
 # Launcher
 
-A Launchpad replacement for macOS: a regular Dock app that opens a full-screen grid of every app on your Mac, with folders, search, and a configurable grid size.
+**A fast, free replacement for macOS Launchpad.**
 
-Built with SwiftUI for macOS 15+.
+Launcher shows every app on your Mac in a clean, keyboard-friendly grid. Search instantly, organise apps into folders, pin your favourites, and filter by category — all without leaving the keyboard.
 
-## Build & run
+[![macOS 15+](https://img.shields.io/badge/macOS-15.0%2B-black?logo=apple)](#requirements)
+[![Built with SwiftUI](https://img.shields.io/badge/SwiftUI-Swift-orange?logo=swift)](LauncherMac)
+[![Buy Me a Coffee](https://img.shields.io/badge/-Buy%20me%20a%20coffee-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/mavasilisk)
 
-1. Open `LauncherMac.xcodeproj` in Xcode.
-2. Select the `LauncherMac` scheme and press ⌘R. The built app is `Launcher.app`.
+---
 
-The project is set up for ad-hoc signing (no developer team required) and no App Sandbox, so the app can enumerate and launch anything installed in `/Applications`, `/System/Applications`, and `~/Applications`.
+## Features
 
-If you prefer the command line:
+- **Every app, one grid** — scans `/Applications`, `/System/Applications`, and `~/Applications` automatically, and picks up newly installed apps on its own.
+- **Instant search** — start typing and press Return to launch the first match.
+- **Favourites** — pin the apps you use most; they sit in their own row above the rest of the grid.
+- **Folders** — drag one app onto another to create a folder, rename it, and drag apps in or out.
+- **Categories** — filter by Developer Tools, Utilities, Productivity & Finance, Creativity, Social, Entertainment, and Information & Reading.
+- **Your layout, remembered** — reorder apps and folders; everything is saved between launches.
+- **Two looks** — a resizable Spotlight-style window, or a full-screen Launchpad-style overlay that hides the Dock and menu bar.
+- **Lives out of the way** — no Dock icon. Open it with a global shortcut and get straight back to work.
+- **Private by design** — no accounts, no telemetry, no network access. Your layout never leaves your Mac.
+
+## Requirements
+
+- macOS 15 (Sequoia) or later.
+- Apple silicon or Intel Mac.
+
+## Install
+
+### Download
+
+Grab the latest `Launcher.app` from the [Releases](../../releases) page, then drag it into your **Applications** folder.
+
+Launcher is ad-hoc signed rather than notarised, so the first time you open it macOS may warn you. To bypass the warning:
+
+1. In **Finder**, right-click **Launcher** and choose **Open**, then confirm **Open**.
+2. Or run:
+
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/Launcher.app
+   ```
+
+### Build from source
+
+Requires Xcode 16 or later.
 
 ```sh
-xcodebuild -project LauncherMac.xcodeproj -scheme LauncherMac -configuration Release build
+git clone https://github.com/Ivanov-k-Ivan/LauncherMac.git
+cd LauncherMac
+
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcodebuild -project LauncherMac.xcodeproj -scheme LauncherMac \
+  -configuration Release -derivedDataPath .build build
+
+cp -R .build/Build/Products/Release/Launcher.app /Applications/
+open /Applications/Launcher.app
 ```
 
-(If Xcode asks, accept the license first: `sudo xcodebuild -license accept`.)
+You can also open `LauncherMac.xcodeproj` in Xcode, select the **LauncherMac** scheme, and press ⌘R.
 
-## Using it
+## Using Launcher
 
-- **Open** — click the Dock icon (or launch the app), or press **⌥Space** anywhere. When the app is active you can also use **⌘⇧L**.
-- **Close** — press Esc, click an app to launch it, or switch to another app.
-- **Search** — start typing; Return launches the first result.
-- **Pages** — swipe horizontally (or click the dots) when you have more apps than fit on one page.
-- **Categories** — click a category chip below the search field to filter apps by kind; click it again to show everything.
-- **Favorites** — open the **•••** menu at the top-right and choose **Edit Favorites**, then tap apps to add or remove them. Favorites are the first rows of the grid, separated from the rest by a divider, and scroll with everything else. Press Esc or Done when finished. You can also right-click any app to add/remove it.
-- **Folders** — drag one app onto another to create a folder. Click a folder to open it, edit its name at the top, and drag apps out (onto the dimmed background, or use the context menu) to remove them. A folder with one app becomes a normal app again.
-- **Settings** — open the **•••** menu at the top-right, or press ⌘, from the app menu.
+Launcher opens automatically when you launch it. After that, bring it back any time:
 
-### Settings
+| Action | Shortcut |
+| --- | --- |
+| Show / hide Launcher | **⌥Space** |
+| Show Launcher (while Launcher is active) | **⌘⇧L** |
+| Launch the first search result | **Return** |
+| Close Launcher or a folder | **Esc** |
+| Open Settings | **⌘,** |
+| Quit Launcher | **⌘Q** |
 
-- **Grid** — columns (4–12) and rows (3–8); the default is 7 × 4.
-- **Scrolling** — one continuous vertical grid (default), or horizontal pages with two-finger swipe / dots.
-- **Presentation** — a regular resizable window (default) or a full-screen overlay (Launchpad style, hides the Dock and menu bar while open).
-- **Shortcut** — enable/disable the ⌥Space global shortcut.
-- **Refresh Apps / Reset Layout** — rescan installed apps, or restore the default alphabetical grid.
+- **Launch an app** — click it, or search and press Return. Launcher closes itself afterwards.
+- **Search** — just start typing. Matching apps appear instantly.
+- **Change pages** — swipe with two fingers or click the page dots (in horizontal layout).
+- **Filter by category** — click a category chip; click it again to show everything.
+- **Favourites** — open the **•••** menu, choose **Edit Favorites**, then click apps to add or remove them. Right-clicking any app works too.
+- **Folders** — drag an app onto another app. Click the folder to open it; drag apps out to the dimmed background (or use the context menu) to remove them.
+- **Rearrange** — drag apps and folders anywhere in the grid.
 
-Layout and folders are stored in `UserDefaults` under `com.ivan.LauncherMac`.
+## Settings
 
-## Project layout
+Open **••• → Settings…** or press **⌘,**
 
-```
-LauncherMac/
-  LauncherMacApp.swift    app entry point, Dock reopen handling
-  LauncherController.swift window/overlay management, global shortcut, launch
-  HotKey.swift            Carbon global hotkey wrapper
-  Models/Models.swift     AppInfo, LauncherFolder, RootItem, drag payloads
-  Services/AppScanner.swift
-  Store/LauncherStore.swift  app list, layout, folders, persistence
-  Views/                  launcher grid, folder view, settings, chrome
-  Assets.xcassets         app icon and accent color
-tools/make-icon.swift     regenerates the 1024pt app icon artwork (sips for sizes)
-```
+- **Grid** — choose 4–12 columns and 3–8 rows (default 7 × 4).
+- **Scrolling** — one continuous vertical grid (default), or horizontal pages.
+- **Presentation** — a regular resizable window (default) or full-screen overlay.
+- **Shortcut** — enable or disable the ⌥Space global shortcut.
+- **Refresh Apps** — rescan installed applications.
+- **Reset Layout** — restore the default alphabetical grid.
+- **Reset to Default** — restore every setting and reset your layout.
+
+## How it works
+
+Launcher is a native SwiftUI app. It reads the list of installed apps from the standard application folders and keeps your layout in `UserDefaults`. It does not use the network, does not require an account, and does not collect analytics.
+
+Because it is not sandboxed, it can enumerate and launch anything under the paths above. The source is small and easy to audit — see [`LauncherMac/`](LauncherMac) if you'd like to look around.
+
+## Troubleshooting
+
+**Launcher doesn't appear when I press ⌥Space.**
+Another app may already be using that shortcut. Open Settings and toggle the global shortcut off and on, or quit the conflicting app.
+
+**An app is missing from the grid.**
+Open Settings and click **Refresh Apps**. Only apps inside `/Applications`, `/System/Applications`, and `~/Applications` are listed; apps elsewhere are not scanned.
+
+**The window opened off-screen.**
+Open Settings and use **Reset Layout**, or click **Reset to Default** to restore the window position and size.
+
+**macOS says the app is damaged or can't be opened.**
+See the [Install](#install) section above to clear the quarantine flag.
+
+## Contributing
+
+Issues and pull requests are welcome. If you spot a bug or have an idea, open an issue with your macOS version and a short description of what happened.
+
+If you'd like to contribute code:
+
+1. Fork the repo and create a branch.
+2. Keep changes focused and match the existing Swift/SwiftUI style.
+3. Build and test locally with the commands above.
+4. Open a pull request describing the change.
+
+## Support
+
+Launcher is free and always will be. If it saves you a little time each day, you can say thanks with a coffee:
+
+<a href="https://buymeacoffee.com/mavasilisk"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="48"></a>
+
+## License
+
+Launcher is **free to use, copy, modify, and share** for personal and other non-commercial purposes — no payment, account, or sign-up required.
+
+The only conditions:
+
+- **Credit the author.** If you share Launcher or a modified version, mention **Ivan Ivanov** and link back to [this repository](https://github.com/Ivanov-k-Ivan/LauncherMac).
+- **No commercial use.** You may not sell Launcher, bundle it into a paid product, or otherwise use it to make money.
+
+See [LICENSE](LICENSE) for the full terms.
